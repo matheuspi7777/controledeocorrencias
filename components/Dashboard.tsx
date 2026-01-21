@@ -155,7 +155,7 @@ const Dashboard: React.FC<DashboardProps> = ({
       textColor: totalArmaFogo > 0 ? 'text-emerald-500' : 'text-green-500',
       borderColor: totalArmaFogo > 0 ? 'border-emerald-600' : 'border-green-900/20',
       isPositive: totalArmaFogo > 0,
-      searchTerm: 'APREENSÃO DE ARMA DE FOGO'
+      searchTerm: 'ARMA'
     },
     {
       label: 'MORTE POR INTERVENÇÃO POLICIAL',
