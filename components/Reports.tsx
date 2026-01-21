@@ -13,7 +13,7 @@ const Reports: React.FC<ReportsProps> = ({ incidents, dailySummaries }) => {
   const [selectedType, setSelectedType] = useState<string>('TODOS');
   const [activeSubTab, setActiveSubTab] = useState<'incidents' | 'summaries'>('incidents');
   const [isGenerating, setIsGenerating] = useState(false);
-  
+
   const [selectedIncidentIds, setSelectedIncidentIds] = useState<Set<string>>(new Set());
   const [selectedSummaryIds, setSelectedSummaryIds] = useState<Set<string>>(new Set());
 
@@ -41,8 +41,8 @@ const Reports: React.FC<ReportsProps> = ({ incidents, dailySummaries }) => {
   const filteredIncidents = useMemo(() => {
     return incidents.filter(inc => {
       const incDate = inc.date.split('T')[0];
-      const matchesDate = (!reportStartDate || incDate >= reportStartDate) && 
-                         (!reportEndDate || incDate <= reportEndDate);
+      const matchesDate = (!reportStartDate || incDate >= reportStartDate) &&
+        (!reportEndDate || incDate <= reportEndDate);
       const matchesType = selectedType === 'TODOS' || inc.type === selectedType;
       return matchesDate && matchesType;
     }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
@@ -51,8 +51,8 @@ const Reports: React.FC<ReportsProps> = ({ incidents, dailySummaries }) => {
   const filteredSummaries = useMemo(() => {
     return dailySummaries.filter(sum => {
       const sumDate = sum.date;
-      return (!reportStartDate || sumDate >= reportStartDate) && 
-             (!reportEndDate || sumDate <= reportEndDate);
+      return (!reportStartDate || sumDate >= reportStartDate) &&
+        (!reportEndDate || sumDate <= reportEndDate);
     }).sort((a, b) => a.date.localeCompare(b.date));
   }, [dailySummaries, reportStartDate, reportEndDate]);
 
@@ -97,14 +97,14 @@ const Reports: React.FC<ReportsProps> = ({ incidents, dailySummaries }) => {
   const generatePDF = () => {
     if (totalSelected === 0) return;
     setIsGenerating(true);
-    
+
     setTimeout(() => {
       try {
         const { jsPDF } = (window as any).jspdf;
         const doc = new jsPDF();
         const exportIncidents = incidents.filter(i => selectedIncidentIds.has(i.id));
         const exportSummaries = dailySummaries.filter(s => selectedSummaryIds.has(s.id));
-        
+
         doc.setFontSize(14);
         doc.setTextColor(0, 43, 92);
         doc.setFont("helvetica", "bold");
@@ -124,69 +124,85 @@ const Reports: React.FC<ReportsProps> = ({ incidents, dailySummaries }) => {
         let currentY: number = 65;
 
         if (exportIncidents.length > 0) {
-            const titleResumo = selectedType === 'TODOS' ? "RESUMO GERAL DE ATIVIDADES" : `DADOS CONSOLIDADOS: ${selectedType}`;
-            doc.setFillColor(0, 43, 92);
-            doc.roundedRect(20, currentY, 170, 10, 2, 2, 'F');
-            doc.setFontSize(10);
-            doc.setTextColor(255, 255, 255);
+          const titleResumo = selectedType === 'TODOS' ? "RESUMO GERAL DE ATIVIDADES" : `DADOS CONSOLIDADOS: ${selectedType}`;
+          doc.setFillColor(0, 43, 92);
+          doc.roundedRect(20, currentY, 170, 10, 2, 2, 'F');
+          doc.setFontSize(10);
+          doc.setTextColor(255, 255, 255);
+          doc.setFont("helvetica", "bold");
+          doc.text(titleResumo, 105, currentY + 7, { align: "center" });
+          currentY += 10;
+          doc.setFillColor(248, 250, 252);
+          doc.setDrawColor(226, 232, 240);
+          doc.rect(20, currentY, 170, 40, 'FD');
+          doc.setFontSize(9);
+          doc.setTextColor(30, 41, 59);
+          doc.setFont("helvetica", "normal");
+
+          // Agregação de Totais para o Resumo Geral
+          const incBO = exportIncidents.length;
+          const sumBO = exportSummaries.reduce((s, sum) => s + (sum.counts.bo || 0), 0);
+          const sumTCO = exportSummaries.reduce((s, sum) => s + (sum.counts.tco || 0), 0);
+
+          const totalFinalBO = incBO + sumBO;
+          const totalFinalTCO = sumTCO;
+
+          const incFlagrantes = exportIncidents.filter(i => i.hasFlagrante === 'Sim').length;
+          const sumFlagrantes = exportSummaries.reduce((s, sum) => s + (sum.counts.flagrantes || 0), 0);
+          const totalFinalFlagrantes = incFlagrantes + sumFlagrantes;
+
+          const incConducoes = exportIncidents.reduce((s, i) => s + (i.conductedCount || 0), 0);
+          const sumConducoes = exportSummaries.reduce((s, sum) => s +
+            (sum.conduzidos.masculino || 0) +
+            (sum.conduzidos.feminino || 0) +
+            (sum.conduzidos.menor_infrator || 0)
+            , 0);
+          const totalFinalConducoes = incConducoes + sumConducoes;
+
+          if (selectedType === IncidentType.ARMA_FOGO) {
+            const totalWeapons = exportIncidents.reduce((s, i) => s + (i.weaponCount || 1), 0);
+            const totalIntact = exportIncidents.reduce((s, i) => s + (i.ammoIntactCount || 0), 0);
+            const totalDeflagrated = exportIncidents.reduce((s, i) => s + (i.ammoDeflagratedCount || 0), 0);
+            const avgAmmo = totalWeapons > 0 ? (totalIntact / totalWeapons).toFixed(1) : 0;
             doc.setFont("helvetica", "bold");
-            doc.text(titleResumo, 105, currentY + 7, { align: "center" });
-            currentY += 10;
-            doc.setFillColor(248, 250, 252);
-            doc.setDrawColor(226, 232, 240);
-            doc.rect(20, currentY, 170, 40, 'FD');
-            doc.setFontSize(9);
-            doc.setTextColor(30, 41, 59);
+            doc.text(`TOTAL DE ARMAS APREENDIDAS:`, 25, currentY + 10);
             doc.setFont("helvetica", "normal");
-
-            const totalIncidents = exportIncidents.length;
-            const totalConducted = exportIncidents.reduce((s, i) => s + (i.conductedCount || 0), 0);
-            const flagranteCount = exportIncidents.filter(i => i.hasFlagrante === 'Sim').length;
-
-            if (selectedType === IncidentType.ARMA_FOGO) {
-                const totalWeapons = exportIncidents.reduce((s, i) => s + (i.weaponCount || 1), 0);
-                const totalIntact = exportIncidents.reduce((s, i) => s + (i.ammoIntactCount || 0), 0);
-                const totalDeflagrated = exportIncidents.reduce((s, i) => s + (i.ammoDeflagratedCount || 0), 0);
-                const avgAmmo = totalWeapons > 0 ? (totalIntact / totalWeapons).toFixed(1) : 0;
-                doc.setFont("helvetica", "bold");
-                doc.text(`TOTAL DE ARMAS APREENDIDAS:`, 25, currentY + 10);
-                doc.setFont("helvetica", "normal");
-                doc.text(`${totalWeapons} un.`, 85, currentY + 10);
-                doc.setFont("helvetica", "bold");
-                doc.text(`Munições (Intactas/Def.):`, 25, currentY + 18);
-                doc.setFont("helvetica", "normal");
-                doc.text(`${totalIntact} / ${totalDeflagrated}`, 85, currentY + 18);
-                doc.setFont("helvetica", "bold");
-                doc.text(`Média Munição/Arma:`, 25, currentY + 26);
-                doc.setFont("helvetica", "normal");
-                doc.text(`${avgAmmo}`, 85, currentY + 26);
-                doc.setFont("helvetica", "bold");
-                doc.text(`Ocorrências c/ Flagrante:`, 115, currentY + 10);
-                doc.setFont("helvetica", "normal");
-                doc.text(`${flagranteCount}`, 165, currentY + 10);
-                doc.setFont("helvetica", "bold");
-                doc.text(`Pessoas Conduzidas:`, 115, currentY + 18);
-                doc.setFont("helvetica", "normal");
-                doc.text(`${totalConducted}`, 165, currentY + 18);
-                doc.setFont("helvetica", "bold");
-                doc.text(`Total de Ocorrências:`, 115, currentY + 26);
-                doc.setFont("helvetica", "normal");
-                doc.text(`${totalIncidents}`, 165, currentY + 26);
-            } else if (selectedType === IncidentType.DROGAS) {
-                const drugSummary = exportIncidents.map(i => i.drugDetails).filter(Boolean).join(', ');
-                doc.text(`- Volume de Ocorrências: ${totalIncidents}`, 25, currentY + 10);
-                doc.text(`- Total de Indivíduos Detidos: ${totalConducted}`, 25, currentY + 18);
-                doc.text(`- Registros de Flagrante: ${flagranteCount}`, 25, currentY + 26);
-                doc.text(`- Detalhes principais observados:`, 110, currentY + 10);
-                const splitDrugs = doc.splitTextToSize(drugSummary || 'N/A', 60);
-                doc.text(splitDrugs.slice(0, 3), 110, currentY + 15);
-            } else {
-                doc.text(`- Total de Registros Selecionados: ${totalIncidents}`, 25, currentY + 10);
-                doc.text(`- Total de Conduções Efetuadas: ${totalConducted}`, 25, currentY + 18);
-                doc.text(`- Flagrantes Delitos: ${flagranteCount}`, 25, currentY + 26);
-                doc.text(`- Unidade Responsável: 43° BPM - P3`, 110, currentY + 10);
-            }
-            currentY += 50;
+            doc.text(`${totalWeapons} un.`, 85, currentY + 10);
+            doc.setFont("helvetica", "bold");
+            doc.text(`Munições (Intactas/Def.):`, 25, currentY + 18);
+            doc.setFont("helvetica", "normal");
+            doc.text(`${totalIntact} / ${totalDeflagrated}`, 85, currentY + 18);
+            doc.setFont("helvetica", "bold");
+            doc.text(`Média Munição/Arma:`, 25, currentY + 26);
+            doc.setFont("helvetica", "normal");
+            doc.text(`${avgAmmo}`, 85, currentY + 26);
+            doc.setFont("helvetica", "bold");
+            doc.text(`Ocorrências c/ Flagrante:`, 115, currentY + 10);
+            doc.setFont("helvetica", "normal");
+            doc.text(`${totalFinalFlagrantes}`, 165, currentY + 10);
+            doc.setFont("helvetica", "bold");
+            doc.text(`Pessoas Conduzidas:`, 115, currentY + 18);
+            doc.setFont("helvetica", "normal");
+            doc.text(`${totalFinalConducoes}`, 165, currentY + 18);
+            doc.setFont("helvetica", "bold");
+            doc.text(`Total de Ocorrências:`, 115, currentY + 26);
+            doc.setFont("helvetica", "normal");
+            doc.text(`${totalFinalBO}`, 165, currentY + 26);
+          } else if (selectedType === IncidentType.DROGAS) {
+            const drugSummary = exportIncidents.map(i => i.drugDetails).filter(Boolean).join(', ');
+            doc.text(`- Volume de Ocorrências: ${totalFinalBO}`, 25, currentY + 10);
+            doc.text(`- Total de Indivíduos Detidos: ${totalFinalConducoes}`, 25, currentY + 18);
+            doc.text(`- Registros de Flagrante: ${totalFinalFlagrantes}`, 25, currentY + 26);
+            doc.text(`- Detalhes principais observados:`, 110, currentY + 10);
+            const splitDrugs = doc.splitTextToSize(drugSummary || 'N/A', 60);
+            doc.text(splitDrugs.slice(0, 3), 110, currentY + 15);
+          } else {
+            doc.text(`- Total de B.O / Ocorrências Gerais: ${totalFinalBO}`, 25, currentY + 10);
+            doc.text(`- Total de TCO: ${totalFinalTCO}`, 25, currentY + 18);
+            doc.text(`- Total de Conduções Efetuadas: ${totalFinalConducoes}`, 110, currentY + 10);
+            doc.text(`- Flagrantes Delitos: ${totalFinalFlagrantes}`, 110, currentY + 18);
+          }
+          currentY += 50;
         }
 
         if (exportSummaries.length > 0) {
@@ -204,41 +220,59 @@ const Reports: React.FC<ReportsProps> = ({ incidents, dailySummaries }) => {
             doc.text(`Data: ${sumDateFormatted}`, 20, currentY);
             currentY += 8; // Espaço após a data
 
-            const countsData = (Object.entries(sum.counts) as [string, number][]).filter(([_, val]) => val > 0).map(([key, val]) => [natureLabels[key] || key, val]);
-            const condData = (Object.entries(sum.conduzidos) as [string, number][]).filter(([_, val]) => val > 0).map(([key, val]) => [conduzidosLabels[key] || key, val]);
-            
-            if (countsData.length > 0 || condData.length > 0) {
-              const startYForTables = currentY;
-              (doc as any).autoTable({ 
-                startY: startYForTables, 
-                head: [['Natureza/Produtividade', 'Qtd']], 
-                body: countsData, 
-                theme: 'grid', 
-                headStyles: { fillColor: [0, 43, 92], textColor: [255, 255, 255], fontSize: 8 }, 
-                bodyStyles: { fontSize: 7 }, 
-                margin: { left: 25 }, 
-                tableWidth: 80 
+            if (sum.entries && sum.entries.length > 0) {
+              const entriesData = sum.entries.map(ent => [
+                `${ent.type}${ent.number ? ' #' + ent.number : ''}`,
+                ent.natures.map(n => natureLabels[n] || n).join(', '),
+                (ent.conduzidos.masculino || 0) + (ent.conduzidos.feminino || 0) + (ent.conduzidos.menor_infrator || 0)
+              ]);
+
+              (doc as any).autoTable({
+                startY: currentY,
+                head: [['Documento', 'Naturezas Atreladas', 'Conduzidos']],
+                body: entriesData,
+                theme: 'grid',
+                headStyles: { fillColor: [0, 43, 92], textColor: [255, 255, 255], fontSize: 8 },
+                bodyStyles: { fontSize: 7 },
+                margin: { left: 20 },
+                tableWidth: 170
               });
-              const finalY1 = (doc as any).lastAutoTable.finalY;
-              
-              (doc as any).autoTable({ 
-                startY: startYForTables, 
-                head: [['Perfil Conduzidos', 'Qtd']], 
-                body: condData, 
-                theme: 'grid', 
-                headStyles: { fillColor: [180, 0, 0], textColor: [255, 255, 255], fontSize: 8 }, 
-                bodyStyles: { fontSize: 7 }, 
-                margin: { left: 110 }, 
-                tableWidth: 75 
-              });
-              const finalY2 = (doc as any).lastAutoTable.finalY;
-              
-              // Define currentY como o maior finalY entre as duas tabelas + respiro
-              currentY = Math.max(finalY1, finalY2) + 15;
+              currentY = (doc as any).lastAutoTable.finalY + 15;
             } else {
-              doc.setFontSize(8); 
-              doc.text("Sem registros quantitativos.", 25, currentY); 
-              currentY += 10;
+              const countsData = (Object.entries(sum.counts) as [string, number][]).filter(([_, val]) => val > 0).map(([key, val]) => [natureLabels[key] || key, val]);
+              const condData = (Object.entries(sum.conduzidos) as [string, number][]).filter(([_, val]) => val > 0).map(([key, val]) => [conduzidosLabels[key] || key, val]);
+
+              if (countsData.length > 0 || condData.length > 0) {
+                const startYForTables = currentY;
+                (doc as any).autoTable({
+                  startY: startYForTables,
+                  head: [['Natureza/Produtividade', 'Qtd']],
+                  body: countsData,
+                  theme: 'grid',
+                  headStyles: { fillColor: [0, 43, 92], textColor: [255, 255, 255], fontSize: 8 },
+                  bodyStyles: { fontSize: 7 },
+                  margin: { left: 25 },
+                  tableWidth: 80
+                });
+                const finalY1 = (doc as any).lastAutoTable.finalY;
+
+                (doc as any).autoTable({
+                  startY: startYForTables,
+                  head: [['Perfil Conduzidos', 'Qtd']],
+                  body: condData,
+                  theme: 'grid',
+                  headStyles: { fillColor: [180, 0, 0], textColor: [255, 255, 255], fontSize: 8 },
+                  bodyStyles: { fontSize: 7 },
+                  margin: { left: 110 },
+                  tableWidth: 75
+                });
+                const finalY2 = (doc as any).lastAutoTable.finalY;
+                currentY = Math.max(finalY1, finalY2) + 15;
+              } else {
+                doc.setFontSize(8);
+                doc.text("Sem registros quantitativos.", 25, currentY);
+                currentY += 10;
+              }
             }
           });
         }
@@ -272,20 +306,35 @@ const Reports: React.FC<ReportsProps> = ({ incidents, dailySummaries }) => {
     setIsGenerating(true);
 
     try {
-        const exportIncidents = incidents.filter(i => selectedIncidentIds.has(i.id));
-        const exportSummaries = dailySummaries.filter(s => selectedSummaryIds.has(s.id));
-        const periodText = reportStartDate && reportEndDate ? `${reportStartDate} até ${reportEndDate}` : "Integral";
-        
-        // Dados do Dashboard
-        const totalIncidents = exportIncidents.length;
-        const totalConducted = exportIncidents.reduce((s, i) => s + (i.conductedCount || 0), 0);
-        const flagranteCount = exportIncidents.filter(i => i.hasFlagrante === 'Sim').length;
-        
-        const totalWeapons = exportIncidents.reduce((s, i) => s + (i.weaponCount || 1), 0);
-        const totalIntact = exportIncidents.reduce((s, i) => s + (i.ammoIntactCount || 0), 0);
-        const totalDeflagrated = exportIncidents.reduce((s, i) => s + (i.ammoDeflagratedCount || 0), 0);
+      const exportIncidents = incidents.filter(i => selectedIncidentIds.has(i.id));
+      const exportSummaries = dailySummaries.filter(s => selectedSummaryIds.has(s.id));
+      const periodText = reportStartDate && reportEndDate ? `${reportStartDate} até ${reportEndDate}` : "Integral";
 
-        let htmlContent = `
+      // Dados do Dashboard
+      // Agregação de Totais
+      const incBO = exportIncidents.length;
+      const sumBO = exportSummaries.reduce((s, sum) => s + (sum.counts.bo || 0), 0);
+      const sumTCO = exportSummaries.reduce((s, sum) => s + (sum.counts.tco || 0), 0);
+      const totalFinalBO = incBO + sumBO;
+      const totalFinalTCO = sumTCO;
+
+      const incFlagrantes = exportIncidents.filter(i => i.hasFlagrante === 'Sim').length;
+      const sumFlagrantes = exportSummaries.reduce((s, sum) => s + (sum.counts.flagrantes || 0), 0);
+      const totalFinalFlagrantes = incFlagrantes + sumFlagrantes;
+
+      const incConducoes = exportIncidents.reduce((s, i) => s + (i.conductedCount || 0), 0);
+      const sumConducoes = exportSummaries.reduce((s, sum) => s +
+        (sum.conduzidos.masculino || 0) +
+        (sum.conduzidos.feminino || 0) +
+        (sum.conduzidos.menor_infrator || 0)
+        , 0);
+      const totalFinalConducoes = incConducoes + sumConducoes;
+
+      const totalWeapons = exportIncidents.reduce((s, i) => s + (i.weaponCount || 1), 0);
+      const totalIntact = exportIncidents.reduce((s, i) => s + (i.ammoIntactCount || 0), 0);
+      const totalDeflagrated = exportIncidents.reduce((s, i) => s + (i.ammoDeflagratedCount || 0), 0);
+
+      let htmlContent = `
             <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
             <head><meta charset='utf-8'><title>Relatório Operacional 43 BPM</title>
             <style>
@@ -325,15 +374,15 @@ const Reports: React.FC<ReportsProps> = ({ incidents, dailySummaries }) => {
                     <table style="border:none;">
                         <tr>
                             <td style="border:none; width: 50%;">
-                                <strong>Volume de Ocorrências:</strong> ${totalIncidents}<br/>
-                                <strong>Pessoas Conduzidas:</strong> ${totalConducted}<br/>
-                                <strong>Flagrantes Delitos:</strong> ${flagranteCount}
+                                <strong>B.O / Ocorrências Gerais:</strong> ${totalFinalBO}<br/>
+                                <strong>Total de TCO:</strong> ${totalFinalTCO}<br/>
+                                <strong>Total de Conduções:</strong> ${totalFinalConducoes}
                             </td>
                             <td style="border:none; width: 50%;">
+                                <strong>Flagrantes Delitos:</strong> ${totalFinalFlagrantes}<br/>
                                 ${selectedType === IncidentType.ARMA_FOGO ? `
                                     <strong>TOTAL DE ARMAS:</strong> ${totalWeapons} un.<br/>
-                                    <strong>Munição Intacta/Deflagrada:</strong> ${totalIntact} / ${totalDeflagrated}<br/>
-                                    <strong>Média Munição/Arma:</strong> ${(totalWeapons > 0 ? (totalIntact / totalWeapons).toFixed(1) : 0)}
+                                    <strong>Munição Intacta/Deflagrada:</strong> ${totalIntact} / ${totalDeflagrated}
                                 ` : `<strong>Unidade Responsável:</strong> 43° BPM - P3`}
                             </td>
                         </tr>
@@ -343,23 +392,36 @@ const Reports: React.FC<ReportsProps> = ({ incidents, dailySummaries }) => {
                 ${exportSummaries.length > 0 ? `
                     <div class="section-title">1. ESTATÍSTICA DE PRODUÇÃO DIÁRIA (P3)</div>
                     ${exportSummaries.map(sum => {
-                        const counts = (Object.entries(sum.counts) as [string, number][]).filter(([_, val]) => val > 0);
-                        const cond = (Object.entries(sum.conduzidos) as [string, number][]).filter(([_, val]) => val > 0);
-                        return `
+        const counts = (Object.entries(sum.counts) as [string, number][]).filter(([_, val]) => val > 0);
+        const cond = (Object.entries(sum.conduzidos) as [string, number][]).filter(([_, val]) => val > 0);
+        return `
                             <div class="data-label"><strong>Data: ${sum.date.split('-').reverse().join('/')}</strong></div>
                             <div style="margin-bottom: 20px;">
-                                <table style="width: 48%; float: left; margin-right: 4%;">
-                                    <tr><th>Natureza</th><th>Qtd</th></tr>
-                                    ${counts.length > 0 ? counts.map(([k, v]) => `<tr><td>${natureLabels[k] || k}</td><td>${v}</td></tr>`).join('') : '<tr><td colspan="2">N/A</td></tr>'}
-                                </table>
-                                <table style="width: 48%;">
-                                    <tr><th class="th-red">Perfil Conduzido</th><th class="th-red">Qtd</th></tr>
-                                    ${cond.length > 0 ? cond.map(([k, v]) => `<tr><td>${conduzidosLabels[k] || k}</td><td>${v}</td></tr>`).join('') : '<tr><td colspan="2">N/A</td></tr>'}
-                                </table>
+                                ${sum.entries && sum.entries.length > 0 ? `
+                                    <table>
+                                        <tr><th>Documento</th><th>Naturezas Atreladas</th><th>Conduzidos</th></tr>
+                                        ${sum.entries.map(ent => `
+                                            <tr>
+                                                <td>${ent.type}${ent.number ? ' #' + ent.number : ''}</td>
+                                                <td>${ent.natures.map(n => natureLabels[n] || n).join(', ')}</td>
+                                                <td>${(ent.conduzidos.masculino || 0) + (ent.conduzidos.feminino || 0) + (ent.conduzidos.menor_infrator || 0)}</td>
+                                            </tr>
+                                        `).join('')}
+                                    </table>
+                                ` : `
+                                    <table style="width: 48%; float: left; margin-right: 4%;">
+                                        <tr><th>Natureza</th><th>Qtd</th></tr>
+                                        ${counts.length > 0 ? counts.map(([k, v]) => `<tr><td>${natureLabels[k] || k}</td><td>${v}</td></tr>`).join('') : '<tr><td colspan="2">N/A</td></tr>'}
+                                    </table>
+                                    <table style="width: 48%;">
+                                        <tr><th class="th-red">Perfil Conduzido</th><th class="th-red">Qtd</th></tr>
+                                        ${cond.length > 0 ? cond.map(([k, v]) => `<tr><td>${conduzidosLabels[k] || k}</td><td>${v}</td></tr>`).join('') : '<tr><td colspan="2">N/A</td></tr>'}
+                                    </table>
+                                `}
                             </div>
                             <div style="clear:both; height: 10px;"></div>
                         `;
-                    }).join('')}
+      }).join('')}
                 ` : ''}
 
                 ${exportIncidents.length > 0 ? `
@@ -382,14 +444,14 @@ const Reports: React.FC<ReportsProps> = ({ incidents, dailySummaries }) => {
             </html>
         `;
 
-        const blob = new Blob(['\ufeff', htmlContent], { type: 'application/msword' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `Relatorio_P3_${new Date().getTime()}.doc`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+      const blob = new Blob(['\ufeff', htmlContent], { type: 'application/msword' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `Relatorio_P3_${new Date().getTime()}.doc`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     } catch (err) { alert("Erro ao gerar Word."); } finally { setIsGenerating(false); }
   };
 
@@ -397,17 +459,17 @@ const Reports: React.FC<ReportsProps> = ({ incidents, dailySummaries }) => {
     <div className="space-y-8 animate-in fade-in duration-500 pb-20">
       <div className="bg-[#0f172a] p-8 rounded-[2rem] border border-slate-800 shadow-xl">
         <div className="flex justify-between items-center mb-6">
-            <h2 className="text-xl font-black text-white uppercase tracking-tight flex items-center gap-3">
-                <i className="fa-solid fa-file-export text-[#ffd700]"></i>
-                Compilador de Relatórios Técnicos
-            </h2>
-            {selectedType !== 'TODOS' && (
-                <span className="px-4 py-1.5 bg-[#ffd700]/10 text-[#ffd700] rounded-full text-[10px] font-black uppercase border border-[#ffd700]/30 animate-pulse">
-                    Relatório Analítico Ativado
-                </span>
-            )}
+          <h2 className="text-xl font-black text-white uppercase tracking-tight flex items-center gap-3">
+            <i className="fa-solid fa-file-export text-[#ffd700]"></i>
+            Compilador de Relatórios Técnicos
+          </h2>
+          {selectedType !== 'TODOS' && (
+            <span className="px-4 py-1.5 bg-[#ffd700]/10 text-[#ffd700] rounded-full text-[10px] font-black uppercase border border-[#ffd700]/30 animate-pulse">
+              Relatório Analítico Ativado
+            </span>
+          )}
         </div>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-5 gap-6 items-end">
           <div className="space-y-1.5">
             <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Data Inicial</label>
@@ -426,10 +488,10 @@ const Reports: React.FC<ReportsProps> = ({ incidents, dailySummaries }) => {
           </div>
           <div className="flex gap-2 lg:col-span-2">
             <button onClick={generatePDF} disabled={isGenerating || totalSelected === 0} className={`flex-1 px-4 py-3.5 rounded-xl font-black text-[10px] uppercase flex items-center justify-center gap-2 shadow-lg transition-all ${totalSelected > 0 ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-slate-800 text-slate-500 cursor-not-allowed'}`}>
-                {isGenerating ? <i className="fa-solid fa-spinner animate-spin"></i> : <i className="fa-solid fa-file-pdf"></i>} PDF Consolidado
+              {isGenerating ? <i className="fa-solid fa-spinner animate-spin"></i> : <i className="fa-solid fa-file-pdf"></i>} PDF Consolidado
             </button>
             <button onClick={generateWord} disabled={isGenerating || totalSelected === 0} className={`flex-1 px-4 py-3.5 rounded-xl font-black text-[10px] uppercase flex items-center justify-center gap-2 shadow-lg transition-all ${totalSelected > 0 ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-slate-800 text-slate-500 cursor-not-allowed'}`}>
-                {isGenerating ? <i className="fa-solid fa-spinner animate-spin"></i> : <i className="fa-solid fa-file-word"></i>} Word Consolidado
+              {isGenerating ? <i className="fa-solid fa-spinner animate-spin"></i> : <i className="fa-solid fa-file-word"></i>} Word Consolidado
             </button>
           </div>
         </div>
