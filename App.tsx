@@ -36,17 +36,102 @@ const App: React.FC = () => {
     return () => subscription.unsubscribe();
   }, []);
 
-  const [incidents, setIncidents] = useState<Incident[]>(() => {
-    const saved = localStorage.getItem('pmma_incidents');
-    if (saved) return JSON.parse(saved);
-    return [...MOCK_INCIDENTS].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  });
+  const [incidents, setIncidents] = useState<Incident[]>([]);
+  const [dailySummaries, setDailySummaries] = useState<DailySummary[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const [dailySummaries, setDailySummaries] = useState<DailySummary[]>(() => {
-    const saved = localStorage.getItem('pmma_daily_summaries');
-    if (saved) return JSON.parse(saved);
-    return [];
-  });
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      if (session) {
+        fetchInitialData();
+      } else {
+        setIsLoading(false);
+      }
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      if (session) {
+        fetchInitialData();
+      } else {
+        setIncidents([]);
+        setDailySummaries([]);
+        setIsLoading(false);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const fetchInitialData = async () => {
+    setIsLoading(true);
+    try {
+      const { data: incidentsData, error: incidentsError } = await supabase
+        .from('incidents')
+        .select('*')
+        .order('date', { ascending: false });
+
+      if (incidentsError) throw incidentsError;
+
+      // Map Supabase snake_case to camelCase
+      const mappedIncidents: Incident[] = (incidentsData || []).map(row => ({
+        id: row.id,
+        type: row.type,
+        incidentNumber: row.incident_number,
+        sigma: row.sigma,
+        description: row.description,
+        location: row.location,
+        date: row.date,
+        status: row.status,
+        reportedBy: row.reported_by,
+        createdAt: row.created_at,
+        weaponType: row.weapon_type,
+        weaponCount: row.weapon_count,
+        ammoIntactCount: row.ammo_intact_count,
+        ammoDeflagratedCount: row.ammo_deflagrated_count,
+        garrison: row.garrison,
+        victim: row.victim,
+        cvliType: row.cvli_type,
+        drugDetails: row.drug_details,
+        conductedCount: row.conducted_count,
+        conductedSex: row.conducted_sex,
+        conductedProfiles: row.conducted_profiles,
+        hasFlagrante: row.has_flagrante,
+        photo: row.photo,
+        vehicleDetails: row.vehicle_details,
+        stolenDetails: row.stolen_details,
+        customType: row.custom_type
+      }));
+
+      setIncidents(mappedIncidents);
+
+      const { data: summariesData, error: summariesError } = await supabase
+        .from('daily_summaries')
+        .select('*')
+        .order('date', { ascending: false });
+
+      if (summariesError) throw summariesError;
+
+      const mappedSummaries: DailySummary[] = (summariesData || []).map(row => ({
+        id: row.id,
+        date: row.date,
+        counts: row.counts,
+        conduzidos: row.conduzidos,
+        entries: row.entries,
+        reportedBy: row.reported_by,
+        createdAt: row.created_at
+      }));
+
+      setDailySummaries(mappedSummaries);
+    } catch (err) {
+      console.error('Error fetching data:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const [searchTerm, setSearchTerm] = useState('');
   const [startDate, setStartDate] = useState('');
@@ -59,13 +144,6 @@ const App: React.FC = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<{ id: string, type: 'incident' | 'summary' } | null>(null);
 
-  useEffect(() => {
-    localStorage.setItem('pmma_incidents', JSON.stringify(incidents));
-  }, [incidents]);
-
-  useEffect(() => {
-    localStorage.setItem('pmma_daily_summaries', JSON.stringify(dailySummaries));
-  }, [dailySummaries]);
 
   useEffect(() => {
     if (activeTab !== 'new') {
@@ -74,41 +152,97 @@ const App: React.FC = () => {
     setIsMobileMenuOpen(false);
   }, [activeTab]);
 
-  const handleSaveIncident = (incidentData: Partial<Incident>) => {
+  const handleSaveIncident = async (incidentData: Partial<Incident>) => {
     const isEditing = !!editingIncident;
-    if (isEditing) {
-      setIncidents(prev => {
-        const updated = prev.map(inc =>
-          inc.id === incidentData.id ? { ...inc, ...incidentData } as Incident : inc
-        );
-        return updated.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-      });
+    try {
+      const payload = {
+        type: incidentData.type,
+        incident_number: incidentData.incidentNumber,
+        sigma: incidentData.sigma,
+        description: incidentData.description,
+        location: incidentData.location,
+        date: incidentData.date,
+        status: incidentData.status,
+        reported_by: incidentData.reportedBy || (isEditing ? editingIncident?.reportedBy : 'P/3 - 43° BPM'),
+        weapon_type: incidentData.weaponType,
+        weapon_count: incidentData.weaponCount,
+        ammo_intact_count: incidentData.ammoIntactCount,
+        ammo_deflagrated_count: incidentData.ammoDeflagratedCount,
+        garrison: incidentData.garrison,
+        victim: incidentData.victim,
+        cvli_type: incidentData.cvliType,
+        drug_details: incidentData.drugDetails,
+        conducted_count: incidentData.conductedCount,
+        conducted_sex: incidentData.conductedSex,
+        conducted_profiles: incidentData.conductedProfiles,
+        has_flagrante: incidentData.hasFlagrante,
+        photo: incidentData.photo,
+        vehicle_details: incidentData.vehicleDetails,
+        stolen_details: incidentData.stolenDetails,
+        custom_type: incidentData.customType,
+        user_id: session?.user.id
+      };
+
+      if (isEditing) {
+        const { error } = await supabase
+          .from('incidents')
+          .update(payload)
+          .eq('id', incidentData.id);
+
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('incidents')
+          .insert([payload]);
+
+        if (error) throw error;
+      }
+
+      await fetchInitialData();
       setEditingIncident(null);
-    } else {
-      const completeIncident: Incident = {
-        ...incidentData,
-        reportedBy: 'P/3 - 43° BPM',
-        createdAt: new Date().toISOString(),
-      } as Incident;
-      setIncidents(prev => [completeIncident, ...prev].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+      setSearchTerm('');
+      setStartDate('');
+      setEndDate('');
+      setActiveTab('list');
+    } catch (err) {
+      console.error('Error saving incident:', err);
+      alert('Erro ao salvar ocorrência no banco de dados.');
     }
-    setSearchTerm('');
-    setStartDate('');
-    setEndDate('');
-    setActiveTab('list');
   };
 
-  const handleSaveDailySummary = (summary: DailySummary) => {
-    setDailySummaries(prev => {
-      const exists = prev.some(s => s.id === summary.id);
-      let updated;
+  const handleSaveDailySummary = async (summary: DailySummary) => {
+    try {
+      const payload = {
+        date: summary.date,
+        counts: summary.counts,
+        conduzidos: summary.conduzidos,
+        entries: summary.entries,
+        reported_by: summary.reportedBy || 'P/3 - 43° BPM',
+        user_id: session?.user.id
+      };
+
+      const exists = !!summary.id && typeof summary.id === 'string' && summary.id.length > 20; // Check if it's a real UUID
+
       if (exists) {
-        updated = prev.map(s => s.id === summary.id ? summary : s);
+        const { error } = await supabase
+          .from('daily_summaries')
+          .update(payload)
+          .eq('id', summary.id);
+
+        if (error) throw error;
       } else {
-        updated = [summary, ...prev];
+        const { error } = await supabase
+          .from('daily_summaries')
+          .insert([payload]);
+
+        if (error) throw error;
       }
-      return updated.sort((a, b) => b.date.localeCompare(a.date));
-    });
+
+      await fetchInitialData();
+    } catch (err) {
+      console.error('Error saving summary:', err);
+      alert('Erro ao salvar resumo no banco de dados.');
+    }
   };
 
   const handleDashboardFilterChange = (status: IncidentStatus | null) => {
@@ -133,15 +267,29 @@ const App: React.FC = () => {
     setShowDeleteModal(true);
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (itemToDelete) {
-      if (itemToDelete.type === 'incident') {
-        setIncidents(prev => prev.filter(inc => inc.id !== itemToDelete.id));
-      } else {
-        setDailySummaries(prev => prev.filter(sum => sum.id !== itemToDelete.id));
+      try {
+        if (itemToDelete.type === 'incident') {
+          const { error } = await supabase
+            .from('incidents')
+            .delete()
+            .eq('id', itemToDelete.id);
+          if (error) throw error;
+        } else {
+          const { error } = await supabase
+            .from('daily_summaries')
+            .delete()
+            .eq('id', itemToDelete.id);
+          if (error) throw error;
+        }
+        await fetchInitialData();
+        setShowDeleteModal(false);
+        setItemToDelete(null);
+      } catch (err) {
+        console.error('Error deleting:', err);
+        alert('Erro ao excluir registro no banco de dados.');
       }
-      setShowDeleteModal(false);
-      setItemToDelete(null);
     }
   };
 
@@ -264,6 +412,17 @@ const App: React.FC = () => {
 
   if (!session) {
     return <Auth />;
+  }
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[#020617] flex items-center justify-center">
+        <div className="text-[#ffd700] text-xl font-black animate-pulse flex flex-col items-center gap-4">
+          <i className="fa-solid fa-shield-halved text-4xl"></i>
+          Sincronizando Dados...
+        </div>
+      </div>
+    );
   }
 
   return (
