@@ -522,6 +522,11 @@ const App: React.FC = () => {
     );
   }
 
+  const handleDashboardCardClick = (term: string) => {
+    setSearchTerm(term);
+    setActiveTab('list');
+  };
+
   return (
     <div className="min-h-screen bg-[#020617] flex flex-col lg:flex-row text-slate-200 overflow-x-hidden relative">
       {/* Botão Hambúrguer Mobile */}
@@ -588,6 +593,7 @@ const App: React.FC = () => {
               isSearching={isSearching}
               activeFilter={dashboardStatusFilter}
               onFilterChange={handleDashboardFilterChange}
+              onCardClick={handleDashboardCardClick}
             />
           )}
           {activeTab === 'list' && (
