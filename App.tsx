@@ -76,15 +76,16 @@ const App: React.FC = () => {
         if (error.code === 'PGRST116') {
           // Perfil ainda não existe (pode acontecer logo após o signup se o trigger demorar)
           // Vamos tentar novamente em 2 segundos
+          console.log('Profile not found, retrying...');
           setTimeout(fetchUserProfile, 2000);
-          return;
+          return; // Mantém isProfileLoading como true
         }
         throw error;
       }
       setUserProfile(data);
+      setIsProfileLoading(false);
     } catch (err) {
       console.error('Error fetching profile:', err);
-    } finally {
       setIsProfileLoading(false);
     }
   };
@@ -470,18 +471,30 @@ const App: React.FC = () => {
     );
   }
 
-  // Barreira de Aprovação
-  if (session && userProfile && !userProfile.is_approved) {
+  // Se temos sessão mas ainda estamos carregando o perfil, mostramos o loading
+  if (session && isProfileLoading) {
+    return (
+      <div className="min-h-screen bg-[#020617] flex items-center justify-center">
+        <div className="text-[#ffd700] text-xl font-black animate-pulse flex flex-col items-center gap-4">
+          <i className="fa-solid fa-user-shield text-4xl"></i>
+          Verificando Autorização...
+        </div>
+      </div>
+    );
+  }
+
+  // Barreira de Aprovação: Se logado mas sem perfil aprovado
+  if (session && (!userProfile || !userProfile.is_approved)) {
     return (
       <div className="min-h-screen bg-[#020617] flex items-center justify-center p-4">
         <div className="bg-[#0f172a]/80 backdrop-blur-xl p-8 rounded-[2.5rem] shadow-2xl border border-slate-800 text-center max-w-sm">
           <i className="fa-solid fa-clock-rotate-left text-5xl text-[#ffd700] mb-6 animate-pulse"></i>
           <h2 className="text-2xl font-black text-white uppercase tracking-tight mb-4">Aguardando Aprovação</h2>
           <p className="text-slate-400 font-bold mb-8">
-            Seu cadastro como <span className="text-white">ID {userProfile.police_id}</span> foi recebido com sucesso.
+            Seu cadastro foi recebido com sucesso.
           </p>
-          <div className="p-4 bg-blue-900/20 border border-blue-900/50 rounded-2xl text-blue-400 text-xs font-bold mb-8">
-            Para garantir a segurança dos dados policiais, um administrador precisa liberar seu acesso manualmente.
+          <div className="p-4 bg-blue-900/20 border border-blue-900/50 rounded-2xl text-blue-400 text-xs font-bold mb-8 text-left">
+            Por segurança, um administrador do 43° BPM precisa liberar seu acesso manualmente no sistema.
           </div>
           <button
             onClick={() => supabase.auth.signOut()}
