@@ -187,178 +187,176 @@ const Dashboard: React.FC<DashboardProps> = ({
     },
   ];
 
-  ];
+  const pieData = Object.values(IncidentType).map(type => ({
+    name: type,
+    value: baseIncidents.filter(i => i.type === type).length
+  })).filter(d => d.value > 0);
 
-const pieData = Object.values(IncidentType).map(type => ({
-  name: type,
-  value: baseIncidents.filter(i => i.type === type).length
-})).filter(d => d.value > 0);
-
-return (
-  <div className="space-y-8 animate-in fade-in duration-500">
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
-      {stats.map((stat: any, idx) => (
-        <div
-          key={idx}
-          onClick={() => onCardClick(stat.searchTerm)}
-          className={`p-6 rounded-3xl shadow-lg border flex flex-col justify-between h-40 transition-all duration-300 hover:scale-[1.02] cursor-pointer ${stat.borderColor} ${stat.color} ${stat.isCritical ? 'shadow-red-600/10' : ''} ${stat.isPositive ? 'shadow-emerald-600/10' : ''}`}
-        >
-          <div className="flex justify-between items-start">
-            <div className={`w-12 h-12 rounded-xl flex items-center justify-center bg-white/5 text-white border border-white/10 ${stat.isCritical ? 'bg-red-600/20 border-red-600' : ''} ${stat.isPositive ? 'bg-emerald-600/20 border-emerald-600' : ''}`}>
-              <i className={`fa-solid ${stat.icon} text-xl ${stat.isCritical ? 'text-red-500' : ''} ${stat.isPositive ? 'text-emerald-500' : ''}`}></i>
+  return (
+    <div className="space-y-8 animate-in fade-in duration-500">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
+        {stats.map((stat: any, idx) => (
+          <div
+            key={idx}
+            onClick={() => onCardClick(stat.searchTerm)}
+            className={`p-6 rounded-3xl shadow-lg border flex flex-col justify-between h-40 transition-all duration-300 hover:scale-[1.02] cursor-pointer ${stat.borderColor} ${stat.color} ${stat.isCritical ? 'shadow-red-600/10' : ''} ${stat.isPositive ? 'shadow-emerald-600/10' : ''}`}
+          >
+            <div className="flex justify-between items-start">
+              <div className={`w-12 h-12 rounded-xl flex items-center justify-center bg-white/5 text-white border border-white/10 ${stat.isCritical ? 'bg-red-600/20 border-red-600' : ''} ${stat.isPositive ? 'bg-emerald-600/20 border-emerald-600' : ''}`}>
+                <i className={`fa-solid ${stat.icon} text-xl ${stat.isCritical ? 'text-red-500' : ''} ${stat.isPositive ? 'text-emerald-500' : ''}`}></i>
+              </div>
+              <span className={`text-4xl font-black ${stat.textColor}`}>{stat.value}</span>
             </div>
-            <span className={`text-4xl font-black ${stat.textColor}`}>{stat.value}</span>
-          </div>
-          <div>
-            <p className={`text-[10px] font-black uppercase tracking-widest ${stat.textColor} opacity-90 leading-tight`}>{stat.label}</p>
-            <div className={`h-1 w-10 mt-2 rounded-full ${stat.isCritical ? 'bg-red-600 opacity-100' : (stat.isPositive ? 'bg-emerald-600 opacity-100' : 'bg-current opacity-30')}`}></div>
-          </div>
-        </div>
-      ))}
-    </div>
-
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-      <div className="bg-[#0f172a] p-8 rounded-[2rem] shadow-xl border border-slate-800 min-w-0">
-        <h3 className="text-sm font-black text-white flex items-center gap-3 uppercase tracking-widest mb-8">
-          <span className="w-2 h-6 bg-[#ffd700] rounded-full"></span>
-          Incidência de Crimes (P3)
-          {(totalCvli > 0 || totalMorteIntervencao > 0) && <span className="ml-auto text-[10px] bg-red-600 text-white px-3 py-1 rounded-full font-black">ALERTAS CRÍTICOS</span>}
-        </h3>
-        <div className="h-80 w-full relative min-h-[320px]">
-          {pieData.length > 0 ? (
-            <ResponsiveContainer width="99%" height={320} debounce={100}>
-              <PieChart>
-                <Pie
-                  data={pieData}
-                  innerRadius={80}
-                  outerRadius={100}
-                  paddingAngle={5}
-                  dataKey="value"
-                >
-                  {pieData.map((entry, index) => (
-                    <Cell
-                      key={`cell-${index}`}
-                      fill={INCIDENT_COLOR_MAP[entry.name] || DEFAULT_PALETTE[index % DEFAULT_PALETTE.length]}
-                      strokeWidth={0}
-                    />
-                  ))}
-                </Pie>
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: '#0f172a',
-                    border: '1px solid #334155',
-                    borderRadius: '12px',
-                    padding: '12px',
-                    boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)'
-                  }}
-                  itemStyle={{
-                    color: '#ffffff',
-                    fontSize: '11px',
-                    fontWeight: '900',
-                    textTransform: 'uppercase'
-                  }}
-                  labelStyle={{
-                    color: '#ffd700',
-                    fontSize: '10px',
-                    fontWeight: '900',
-                    marginBottom: '4px',
-                    textTransform: 'uppercase'
-                  }}
-                />
-                <Legend
-                  iconType="circle"
-                  formatter={(value) => (
-                    <span className={`text-[10px] font-black uppercase tracking-tighter ${value === IncidentType.CVLI || value === IncidentType.MORTE_INTERVENCAO ? 'text-red-500' : 'text-slate-400'}`}>
-                      {value}
-                    </span>
-                  )}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="h-full flex items-center justify-center text-slate-600 uppercase text-[10px] font-black">Sem registros detalhados</div>
-          )}
-        </div>
-      </div>
-
-      <div className="bg-[#0f172a] p-8 rounded-[2rem] shadow-xl border border-slate-800 min-w-0">
-        <h3 className="text-sm font-black text-slate-300 flex items-center gap-3 uppercase tracking-widest mb-8">
-          <i className="fa-solid fa-users-viewfinder text-blue-500"></i> Perfil de Conduzidos Consolidado
-        </h3>
-        <div className="h-80 w-full relative min-h-[320px]">
-          {conduzidosChartData.length > 0 ? (
-            <ResponsiveContainer width="99%" height={320} debounce={100}>
-              <BarChart data={conduzidosChartData}>
-                <XAxis dataKey="name" axisLine={false} tickLine={false} fontSize={10} fontWeight="black" tick={{ fill: '#64748b' }} />
-                <Tooltip
-                  cursor={{ fill: 'rgba(255,255,255,0.05)' }}
-                  contentStyle={{
-                    backgroundColor: '#0f172a',
-                    border: '1px solid #334155',
-                    borderRadius: '12px',
-                    padding: '12px'
-                  }}
-                  itemStyle={{
-                    color: '#ffffff',
-                    fontSize: '11px',
-                    fontWeight: '900',
-                    textTransform: 'uppercase'
-                  }}
-                  labelStyle={{
-                    color: '#3b82f6',
-                    fontSize: '10px',
-                    fontWeight: '900',
-                    marginBottom: '4px',
-                    textTransform: 'uppercase'
-                  }}
-                />
-                <Bar dataKey="value" radius={[8, 8, 0, 0]} barSize={40}>
-                  {conduzidosChartData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={CONDUZIDOS_COLORS[index % CONDUZIDOS_COLORS.length]} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="h-full flex items-center justify-center text-slate-600 uppercase text-[10px] font-black">Nenhuma condução no período</div>
-          )}
-        </div>
-      </div>
-    </div>
-
-    <div className="bg-[#0f172a] p-8 rounded-[2rem] shadow-xl border border-slate-800">
-      <h3 className="text-sm font-black text-slate-100 flex items-center gap-3 uppercase tracking-widest mb-6">
-        <i className="fa-solid fa-list-ol text-[#ffd700]"></i> Outras Naturezas Consolidadas
-      </h3>
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-        {summaryOccurrenceData.length > 0 ? summaryOccurrenceData.map((item, idx) => {
-          const isCustom = !Object.values(occurrenceLabels).includes(item.name);
-          const isCritical = item.name.toUpperCase().includes('CVLI') || item.name.toUpperCase().includes('MORTE') || item.name.toUpperCase().includes('HOMICIDIO');
-
-          return (
-            <div key={idx} className={`p-4 rounded-2xl border flex justify-between items-center transition-all ${isCritical ? 'bg-red-900/40 border-red-600 shadow-[0_0_15px_rgba(220,38,38,0.2)]' : (isCustom ? 'bg-[#ffd700]/5 border-[#ffd700]/20' : 'bg-white/5 border-white/5')
-              }`}>
-              <span className={`text-[10px] font-black uppercase truncate pr-2 ${isCritical ? 'text-red-500' : (isCustom ? 'text-[#ffd700]' : 'text-slate-400')}`}>
-                {item.name}
-              </span>
-              <span className={`text-sm font-black ${isCritical ? 'text-red-500' : 'text-[#ffd700]'}`}>
-                {item.value}
-              </span>
+            <div>
+              <p className={`text-[10px] font-black uppercase tracking-widest ${stat.textColor} opacity-90 leading-tight`}>{stat.label}</p>
+              <div className={`h-1 w-10 mt-2 rounded-full ${stat.isCritical ? 'bg-red-600 opacity-100' : (stat.isPositive ? 'bg-emerald-600 opacity-100' : 'bg-current opacity-30')}`}></div>
             </div>
-          );
-        }) : (
-          <div className="col-span-full py-6 text-center text-slate-600 font-black uppercase text-[10px] tracking-widest">
-            Nenhuma outra natureza registrada nos resumos filtrados.
           </div>
-        )}
-        <div className="bg-green-600/10 p-4 rounded-2xl border border-green-500/20 flex justify-between items-center">
-          <span className="text-[10px] font-black text-green-400 uppercase">FLAGRANTES (TOTAL)</span>
-          <span className="text-sm font-black text-green-400">{totalFlagrantesGeral}</span>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="bg-[#0f172a] p-8 rounded-[2rem] shadow-xl border border-slate-800 min-w-0">
+          <h3 className="text-sm font-black text-white flex items-center gap-3 uppercase tracking-widest mb-8">
+            <span className="w-2 h-6 bg-[#ffd700] rounded-full"></span>
+            Incidência de Crimes (P3)
+            {(totalCvli > 0 || totalMorteIntervencao > 0) && <span className="ml-auto text-[10px] bg-red-600 text-white px-3 py-1 rounded-full font-black">ALERTAS CRÍTICOS</span>}
+          </h3>
+          <div className="h-80 w-full relative min-h-[320px]">
+            {pieData.length > 0 ? (
+              <ResponsiveContainer width="99%" height={320} debounce={100}>
+                <PieChart>
+                  <Pie
+                    data={pieData}
+                    innerRadius={80}
+                    outerRadius={100}
+                    paddingAngle={5}
+                    dataKey="value"
+                  >
+                    {pieData.map((entry, index) => (
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={INCIDENT_COLOR_MAP[entry.name] || DEFAULT_PALETTE[index % DEFAULT_PALETTE.length]}
+                        strokeWidth={0}
+                      />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: '#0f172a',
+                      border: '1px solid #334155',
+                      borderRadius: '12px',
+                      padding: '12px',
+                      boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)'
+                    }}
+                    itemStyle={{
+                      color: '#ffffff',
+                      fontSize: '11px',
+                      fontWeight: '900',
+                      textTransform: 'uppercase'
+                    }}
+                    labelStyle={{
+                      color: '#ffd700',
+                      fontSize: '10px',
+                      fontWeight: '900',
+                      marginBottom: '4px',
+                      textTransform: 'uppercase'
+                    }}
+                  />
+                  <Legend
+                    iconType="circle"
+                    formatter={(value) => (
+                      <span className={`text-[10px] font-black uppercase tracking-tighter ${value === IncidentType.CVLI || value === IncidentType.MORTE_INTERVENCAO ? 'text-red-500' : 'text-slate-400'}`}>
+                        {value}
+                      </span>
+                    )}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-full flex items-center justify-center text-slate-600 uppercase text-[10px] font-black">Sem registros detalhados</div>
+            )}
+          </div>
+        </div>
+
+        <div className="bg-[#0f172a] p-8 rounded-[2rem] shadow-xl border border-slate-800 min-w-0">
+          <h3 className="text-sm font-black text-slate-300 flex items-center gap-3 uppercase tracking-widest mb-8">
+            <i className="fa-solid fa-users-viewfinder text-blue-500"></i> Perfil de Conduzidos Consolidado
+          </h3>
+          <div className="h-80 w-full relative min-h-[320px]">
+            {conduzidosChartData.length > 0 ? (
+              <ResponsiveContainer width="99%" height={320} debounce={100}>
+                <BarChart data={conduzidosChartData}>
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} fontSize={10} fontWeight="black" tick={{ fill: '#64748b' }} />
+                  <Tooltip
+                    cursor={{ fill: 'rgba(255,255,255,0.05)' }}
+                    contentStyle={{
+                      backgroundColor: '#0f172a',
+                      border: '1px solid #334155',
+                      borderRadius: '12px',
+                      padding: '12px'
+                    }}
+                    itemStyle={{
+                      color: '#ffffff',
+                      fontSize: '11px',
+                      fontWeight: '900',
+                      textTransform: 'uppercase'
+                    }}
+                    labelStyle={{
+                      color: '#3b82f6',
+                      fontSize: '10px',
+                      fontWeight: '900',
+                      marginBottom: '4px',
+                      textTransform: 'uppercase'
+                    }}
+                  />
+                  <Bar dataKey="value" radius={[8, 8, 0, 0]} barSize={40}>
+                    {conduzidosChartData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={CONDUZIDOS_COLORS[index % CONDUZIDOS_COLORS.length]} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-full flex items-center justify-center text-slate-600 uppercase text-[10px] font-black">Nenhuma condução no período</div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-[#0f172a] p-8 rounded-[2rem] shadow-xl border border-slate-800">
+        <h3 className="text-sm font-black text-slate-100 flex items-center gap-3 uppercase tracking-widest mb-6">
+          <i className="fa-solid fa-list-ol text-[#ffd700]"></i> Outras Naturezas Consolidadas
+        </h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          {summaryOccurrenceData.length > 0 ? summaryOccurrenceData.map((item, idx) => {
+            const isCustom = !Object.values(occurrenceLabels).includes(item.name);
+            const isCritical = item.name.toUpperCase().includes('CVLI') || item.name.toUpperCase().includes('MORTE') || item.name.toUpperCase().includes('HOMICIDIO');
+
+            return (
+              <div key={idx} className={`p-4 rounded-2xl border flex justify-between items-center transition-all ${isCritical ? 'bg-red-900/40 border-red-600 shadow-[0_0_15px_rgba(220,38,38,0.2)]' : (isCustom ? 'bg-[#ffd700]/5 border-[#ffd700]/20' : 'bg-white/5 border-white/5')
+                }`}>
+                <span className={`text-[10px] font-black uppercase truncate pr-2 ${isCritical ? 'text-red-500' : (isCustom ? 'text-[#ffd700]' : 'text-slate-400')}`}>
+                  {item.name}
+                </span>
+                <span className={`text-sm font-black ${isCritical ? 'text-red-500' : 'text-[#ffd700]'}`}>
+                  {item.value}
+                </span>
+              </div>
+            );
+          }) : (
+            <div className="col-span-full py-6 text-center text-slate-600 font-black uppercase text-[10px] tracking-widest">
+              Nenhuma outra natureza registrada nos resumos filtrados.
+            </div>
+          )}
+          <div className="bg-green-600/10 p-4 rounded-2xl border border-green-500/20 flex justify-between items-center">
+            <span className="text-[10px] font-black text-green-400 uppercase">FLAGRANTES (TOTAL)</span>
+            <span className="text-sm font-black text-green-400">{totalFlagrantesGeral}</span>
+          </div>
         </div>
       </div>
     </div>
-  </div>
-);
+  );
 };
 
 export default Dashboard;
