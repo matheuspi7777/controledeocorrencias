@@ -18,7 +18,7 @@ const INCIDENT_COLOR_MAP: Record<string, string> = {
   [IncidentType.CVLI]: '#ef4444',
   [IncidentType.MORTE_INTERVENCAO]: '#991b1b',
   [IncidentType.VEICULO_RECUPERADO]: '#22c55e',
-  [IncidentType.ARMA_FOGO]: '#10b981',
+  [IncidentType.ARMA_FOGO]: '#10b981', // Emerald/Green Color
   [IncidentType.DROGAS]: '#a855f7',
   [IncidentType.ROUBO_VEICULO]: '#f97316',
   [IncidentType.FURTO_VEICULO]: '#fbbf24',
@@ -152,7 +152,7 @@ const Dashboard: React.FC<DashboardProps> = ({
       value: totalArmaFogo,
       icon: 'fa-gun',
       color: totalArmaFogo > 0 ? 'bg-emerald-600/20' : 'bg-green-900/10',
-      textColor: totalArmaFogo > 0 ? 'text-emerald-500' : 'text-green-500/50',
+      textColor: totalArmaFogo > 0 ? 'text-emerald-500' : 'text-green-500',
       borderColor: totalArmaFogo > 0 ? 'border-emerald-600' : 'border-green-900/20',
       isPositive: totalArmaFogo > 0,
       searchTerm: 'APREENSÃO DE ARMA DE FOGO'
