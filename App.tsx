@@ -72,12 +72,12 @@ const App: React.FC = () => {
         .eq('id', session.user.id)
         .single();
 
-      console.log('Profile fetch result:', { data, error });
       if (error) {
         if (error.code === 'PGRST116') {
-          console.log('Profile not found, retrying...');
+          // Perfil ainda não existe (pode acontecer logo após o signup se o trigger demorar)
+          // Vamos tentar novamente em 2 segundos
           setTimeout(fetchUserProfile, 2000);
-          return;
+          return; // Mantém isProfileLoading como true
         }
         throw error;
       }
