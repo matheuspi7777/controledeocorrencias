@@ -57,7 +57,7 @@ const App: React.FC = () => {
   const [editingIncident, setEditingIncident] = useState<Incident | null>(null);
 
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [incidentToDelete, setIncidentToDelete] = useState<string | null>(null);
+  const [itemToDelete, setItemToDelete] = useState<{ id: string, type: 'incident' | 'summary' } | null>(null);
 
   useEffect(() => {
     localStorage.setItem('pmma_incidents', JSON.stringify(incidents));
@@ -124,21 +124,30 @@ const App: React.FC = () => {
   const handleStartView = (incident: Incident) => setViewingIncident(incident);
 
   const handleDeleteRequest = (id: string) => {
-    setIncidentToDelete(id);
+    setItemToDelete({ id, type: 'incident' });
+    setShowDeleteModal(true);
+  };
+
+  const handleDeleteSummaryRequest = (id: string) => {
+    setItemToDelete({ id, type: 'summary' });
     setShowDeleteModal(true);
   };
 
   const confirmDelete = () => {
-    if (incidentToDelete) {
-      setIncidents(prev => prev.filter(inc => inc.id !== incidentToDelete));
+    if (itemToDelete) {
+      if (itemToDelete.type === 'incident') {
+        setIncidents(prev => prev.filter(inc => inc.id !== itemToDelete.id));
+      } else {
+        setDailySummaries(prev => prev.filter(sum => sum.id !== itemToDelete.id));
+      }
       setShowDeleteModal(false);
-      setIncidentToDelete(null);
+      setItemToDelete(null);
     }
   };
 
   const cancelDelete = () => {
     setShowDeleteModal(false);
-    setIncidentToDelete(null);
+    setItemToDelete(null);
   };
 
   const handleClearFilters = () => {
@@ -328,7 +337,13 @@ const App: React.FC = () => {
               onDelete={handleDeleteRequest}
             />
           )}
-          {activeTab === 'daily' && <DailySummaryView summaries={filteredSummaries} onSave={handleSaveDailySummary} />}
+          {activeTab === 'daily' && (
+            <DailySummaryView
+              summaries={filteredSummaries}
+              onSave={handleSaveDailySummary}
+              onDelete={handleDeleteSummaryRequest}
+            />
+          )}
           {activeTab === 'reports' && <Reports incidents={incidents} dailySummaries={dailySummaries} />}
           {activeTab === 'analysis' && <AIAnalysis incidents={filteredIncidents} />}
           {activeTab === 'new' && (

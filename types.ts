@@ -57,6 +57,18 @@ export interface Incident {
   customType?: string;
 }
 
+export interface ReportEntry {
+  id: string;
+  type: 'BO' | 'TCO';
+  number?: string;
+  natures: string[];
+  conduzidos: {
+    masculino: number;
+    feminino: number;
+    menor_infrator: number;
+  };
+}
+
 export interface DailySummary {
   id: string;
   date: string;
@@ -66,6 +78,7 @@ export interface DailySummary {
     feminino: number;
     menor_infrator: number;
   };
+  entries?: ReportEntry[];
   reportedBy: string;
   createdAt: string;
 }
