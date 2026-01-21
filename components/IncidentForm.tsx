@@ -18,7 +18,7 @@ const IncidentForm: React.FC<IncidentFormProps> = ({ onSave, onCancel, initialDa
     now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
     return now.toISOString().slice(0, 16);
   };
-  
+
   const [formData, setFormData] = useState<Partial<Incident>>({
     type: IncidentType.CVLI,
     status: IncidentStatus.PENDENTE,
@@ -41,6 +41,31 @@ const IncidentForm: React.FC<IncidentFormProps> = ({ onSave, onCancel, initialDa
     victim: ''
   });
 
+  // Carregar rascunho se não houver dados iniciais (edição)
+  useEffect(() => {
+    if (!initialData) {
+      const draft = localStorage.getItem('pmma_incident_draft');
+      if (draft) {
+        try {
+          const parsedDraft = JSON.parse(draft);
+          setFormData(prev => ({ ...prev, ...parsedDraft }));
+        } catch (e) {
+          console.error('Erro ao carregar rascunho:', e);
+        }
+      }
+    }
+  }, [initialData]);
+
+  // Salvar rascunho automaticamente
+  useEffect(() => {
+    if (!isEditing) {
+      const timeoutId = setTimeout(() => {
+        localStorage.setItem('pmma_incident_draft', JSON.stringify(formData));
+      }, 1000);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [formData, isEditing]);
+
   const isWeaponSeizure = formData.type === IncidentType.ARMA_FOGO;
   const isSimulacro = formData.type === IncidentType.SIMULACRO;
   const isCVLI = formData.type === IncidentType.CVLI;
@@ -55,7 +80,7 @@ const IncidentForm: React.FC<IncidentFormProps> = ({ onSave, onCancel, initialDa
   const isRouboVeiculo = formData.type === IncidentType.ROUBO_VEICULO;
   const isRouboPatrimonial = formData.type === IncidentType.ROUBO_RESIDENCIA || formData.type === IncidentType.ROUBO_COMERCIAL;
   const isOther = formData.type === IncidentType.OUTRO;
-  
+
   const isPersonIncident = isCVLIStyle || isCadaverOrSuicide || isMandado || isRouboPessoa;
 
   useEffect(() => {
@@ -72,7 +97,7 @@ const IncidentForm: React.FC<IncidentFormProps> = ({ onSave, onCancel, initialDa
   useEffect(() => {
     const count = formData.conductedCount || 0;
     const currentProfiles = formData.conductedProfiles || [];
-    
+
     if (currentProfiles.length !== count) {
       const nextProfiles = [...currentProfiles];
       if (nextProfiles.length < count) {
@@ -94,7 +119,7 @@ const IncidentForm: React.FC<IncidentFormProps> = ({ onSave, onCancel, initialDa
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     let finalDescription = formData.description;
     let finalType = formData.type;
     const garrisonText = formData.garrison ? formData.garrison : 'NÃO INFORMADA';
@@ -130,10 +155,22 @@ const IncidentForm: React.FC<IncidentFormProps> = ({ onSave, onCancel, initialDa
       id: isEditing ? initialData?.id : Math.random().toString(36).substr(2, 9),
       createdAt: isEditing ? initialData?.createdAt : new Date().toISOString(),
       description: finalDescription || '',
-      sigma: formData.sigma || 'N/A', 
+      sigma: formData.sigma || 'N/A',
       garrison: formData.garrison || '',
       conductedSex: formData.conductedProfiles?.[0] || 'Não Informado' // Legado
     });
+
+    // Limpar rascunho após salvar
+    if (!isEditing) {
+      localStorage.removeItem('pmma_incident_draft');
+    }
+  };
+
+  const handleCancelClick = () => {
+    if (!isEditing) {
+      localStorage.removeItem('pmma_incident_draft');
+    }
+    onCancel();
   };
 
   return (
@@ -147,7 +184,7 @@ const IncidentForm: React.FC<IncidentFormProps> = ({ onSave, onCancel, initialDa
             {isEditing ? `BO: ${initialData?.incidentNumber}` : 'POLÍCIA MILITAR DO MARANHÃO'}
           </p>
         </div>
-        <button onClick={onCancel} type="button" className="w-10 h-10 rounded-xl bg-slate-800 text-slate-500 hover:bg-red-900/20 hover:text-red-500 transition-all flex items-center justify-center border border-slate-700">
+        <button onClick={handleCancelClick} type="button" className="w-10 h-10 rounded-xl bg-slate-800 text-slate-500 hover:bg-red-900/20 hover:text-red-500 transition-all flex items-center justify-center border border-slate-700">
           <i className="fa-solid fa-xmark text-xl"></i>
         </button>
       </div>
@@ -155,8 +192,8 @@ const IncidentForm: React.FC<IncidentFormProps> = ({ onSave, onCancel, initialDa
       <form onSubmit={handleSubmit} className="p-4 sm:p-8 space-y-8 bg-[#0f172a]">
         <div className="space-y-6">
           <div className="flex items-center gap-3">
-             <span className="w-8 h-8 rounded-lg bg-[#ffd700] text-[#002b5c] flex items-center justify-center font-black text-xs">01</span>
-             <h3 className="text-xs font-black text-white uppercase tracking-widest">Natureza do Fato</h3>
+            <span className="w-8 h-8 rounded-lg bg-[#ffd700] text-[#002b5c] flex items-center justify-center font-black text-xs">01</span>
+            <h3 className="text-xs font-black text-white uppercase tracking-widest">Natureza do Fato</h3>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="space-y-1.5">
@@ -206,7 +243,7 @@ const IncidentForm: React.FC<IncidentFormProps> = ({ onSave, onCancel, initialDa
                 />
               </div>
             </div>
-            
+
             <div className="space-y-1.5">
               <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Código SIGMA</label>
               <div className="relative">
@@ -224,8 +261,8 @@ const IncidentForm: React.FC<IncidentFormProps> = ({ onSave, onCancel, initialDa
 
         <div className="space-y-6">
           <div className="flex items-center gap-3">
-             <span className="w-8 h-8 rounded-lg bg-[#ffd700] text-[#002b5c] flex items-center justify-center font-black text-xs">02</span>
-             <h3 className="text-xs font-black text-white uppercase tracking-widest">Status e Tempo</h3>
+            <span className="w-8 h-8 rounded-lg bg-[#ffd700] text-[#002b5c] flex items-center justify-center font-black text-xs">02</span>
+            <h3 className="text-xs font-black text-white uppercase tracking-widest">Status e Tempo</h3>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-1.5">
@@ -257,8 +294,8 @@ const IncidentForm: React.FC<IncidentFormProps> = ({ onSave, onCancel, initialDa
 
         <div className="space-y-6">
           <div className="flex items-center gap-3">
-             <span className="w-8 h-8 rounded-lg bg-[#ffd700] text-[#002b5c] flex items-center justify-center font-black text-xs">03</span>
-             <h3 className="text-xs font-black text-white uppercase tracking-widest">Localização</h3>
+            <span className="w-8 h-8 rounded-lg bg-[#ffd700] text-[#002b5c] flex items-center justify-center font-black text-xs">03</span>
+            <h3 className="text-xs font-black text-white uppercase tracking-widest">Localização</h3>
           </div>
           <div className="space-y-1.5">
             <input
@@ -419,7 +456,7 @@ const IncidentForm: React.FC<IncidentFormProps> = ({ onSave, onCancel, initialDa
                   onChange={(e) => setFormData({ ...formData, vehicleDetails: e.target.value })}
                 />
               </div>
-              
+
               {(isFurtoVeiculo || isRouboVeiculo) && (
                 <div className="md:col-span-2 space-y-1.5 mb-2 animate-in slide-in-from-top-2">
                   <label className="text-[10px] font-black text-[#ffd700] uppercase tracking-widest ml-1">Nome da Vítima</label>
@@ -485,23 +522,23 @@ const IncidentForm: React.FC<IncidentFormProps> = ({ onSave, onCancel, initialDa
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
             />
             {!isRouboPessoa && !isDrogas && !isMandado && !isCVLIStyle && !isCadaverOrSuicide && (
-               <div className="space-y-1.5 mb-2">
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">VTR / Guarnição</label>
-                  <input
-                    value={formData.garrison || ''}
-                    className="w-full px-4 sm:px-6 py-3 sm:py-3.5 rounded-2xl border-2 border-slate-800 bg-[#1e293b] focus:border-[#ffd700] outline-none text-sm text-white font-black placeholder-slate-700"
-                    placeholder="Ex: VTR 43-100"
-                    onChange={(e) => setFormData({ ...formData, garrison: e.target.value })}
-                  />
-               </div>
+              <div className="space-y-1.5 mb-2">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">VTR / Guarnição</label>
+                <input
+                  value={formData.garrison || ''}
+                  className="w-full px-4 sm:px-6 py-3 sm:py-3.5 rounded-2xl border-2 border-slate-800 bg-[#1e293b] focus:border-[#ffd700] outline-none text-sm text-white font-black placeholder-slate-700"
+                  placeholder="Ex: VTR 43-100"
+                  onChange={(e) => setFormData({ ...formData, garrison: e.target.value })}
+                />
+              </div>
             )}
           </div>
         )}
 
         <div className="space-y-6 bg-red-900/5 p-4 sm:p-6 rounded-3xl border border-red-900/20">
           <div className="flex items-center gap-3">
-             <span className="w-8 h-8 rounded-lg bg-red-600 text-white flex items-center justify-center font-black text-xs">05</span>
-             <h3 className="text-xs font-black text-white uppercase tracking-widest">Produtividade P/3</h3>
+            <span className="w-8 h-8 rounded-lg bg-red-600 text-white flex items-center justify-center font-black text-xs">05</span>
+            <h3 className="text-xs font-black text-white uppercase tracking-widest">Produtividade P/3</h3>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <div className="space-y-1.5 mb-2">
@@ -554,7 +591,7 @@ const IncidentForm: React.FC<IncidentFormProps> = ({ onSave, onCancel, initialDa
         </div>
 
         <div className="flex gap-4 pt-6 border-t border-slate-800">
-          <button type="button" onClick={onCancel} className="px-4 sm:px-6 py-3 bg-slate-800 text-slate-400 font-black rounded-xl hover:text-white transition-all text-xs uppercase">Cancelar</button>
+          <button type="button" onClick={handleCancelClick} className="px-4 sm:px-6 py-3 bg-slate-800 text-slate-400 font-black rounded-xl hover:text-white transition-all text-xs uppercase">Cancelar</button>
           <button type="submit" className="flex-1 px-4 sm:px-6 py-3 bg-[#ffd700] text-[#002b5c] font-black rounded-xl hover:bg-[#ffea00] transition-all text-xs uppercase shadow-lg shadow-[#ffd700]/10">Salvar Registro</button>
         </div>
       </form>

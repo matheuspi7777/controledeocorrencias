@@ -55,7 +55,8 @@ const App: React.FC = () => {
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       if (session) {
-        fetchInitialData();
+        // Use background refresh if we already have data
+        fetchInitialData(incidents.length === 0 && dailySummaries.length === 0);
       } else {
         setIncidents([]);
         setDailySummaries([]);
@@ -66,8 +67,8 @@ const App: React.FC = () => {
     return () => subscription.unsubscribe();
   }, []);
 
-  const fetchInitialData = async () => {
-    setIsLoading(true);
+  const fetchInitialData = async (showLoading = true) => {
+    if (showLoading) setIsLoading(true);
     try {
       const { data: incidentsData, error: incidentsError } = await supabase
         .from('incidents')

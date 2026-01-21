@@ -78,6 +78,31 @@ const DailySummaryView: React.FC<DailySummaryProps> = ({ summaries, onSave, onDe
 
   const [formData, setFormData] = useState<Partial<DailySummary>>(initialFormState);
 
+  // Carregar rascunho
+  React.useEffect(() => {
+    if (!isEditing && showForm) {
+      const draft = localStorage.getItem('pmma_summary_draft');
+      if (draft) {
+        try {
+          const parsedDraft = JSON.parse(draft);
+          setFormData(prev => ({ ...prev, ...parsedDraft }));
+        } catch (e) {
+          console.error('Erro ao carregar rascunho:', e);
+        }
+      }
+    }
+  }, [showForm, isEditing]);
+
+  // Salvar rascunho
+  React.useEffect(() => {
+    if (!isEditing && showForm) {
+      const timeoutId = setTimeout(() => {
+        localStorage.setItem('pmma_summary_draft', JSON.stringify(formData));
+      }, 1000);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [formData, showForm, isEditing]);
+
   const calculateTotals = (entries: ReportEntry[]) => {
     const counts: Record<string, number> = {};
     const conduzidos = { masculino: 0, feminino: 0, menor_infrator: 0 };
@@ -165,9 +190,19 @@ const DailySummaryView: React.FC<DailySummaryProps> = ({ summaries, onSave, onDe
         createdAt: isEditing ? (formData.createdAt || new Date().toISOString()) : new Date().toISOString()
       } as DailySummary;
       onSave(newSummary);
+      if (!isEditing) {
+        localStorage.removeItem('pmma_summary_draft');
+      }
       setShowForm(false);
       setIsSaving(false);
     }, 400);
+  };
+
+  const handleCloseForm = () => {
+    if (!isEditing) {
+      localStorage.removeItem('pmma_summary_draft');
+    }
+    setShowForm(false);
   };
 
   const formatDateLocale = (dateStr: string) => {
@@ -209,7 +244,7 @@ const DailySummaryView: React.FC<DailySummaryProps> = ({ summaries, onSave, onDe
 
       {showForm && (
         <div className="fixed inset-0 z-[999] flex items-center justify-center p-2 sm:p-4">
-          <div className="absolute inset-0 bg-black/95 backdrop-blur-md" onClick={() => !isSaving && setShowForm(false)}></div>
+          <div className="absolute inset-0 bg-black/95 backdrop-blur-md" onClick={() => !isSaving && handleCloseForm()}></div>
           <div className="relative bg-[#020617] rounded-[1.5rem] sm:rounded-[2rem] w-full max-w-7xl max-h-[98vh] overflow-hidden flex flex-col border border-slate-800 shadow-2xl animate-in zoom-in-95 duration-200">
 
             <header className="px-6 sm:px-8 py-4 sm:py-5 border-b border-slate-800 flex justify-between items-center bg-[#0f172a]">
@@ -225,7 +260,7 @@ const DailySummaryView: React.FC<DailySummaryProps> = ({ summaries, onSave, onDe
                 </div>
               </div>
               {!isSaving && (
-                <button onClick={() => setShowForm(false)} className="text-slate-500 hover:text-white p-2 transition-colors">
+                <button onClick={handleCloseForm} className="text-slate-500 hover:text-white p-2 transition-colors">
                   <i className="fa-solid fa-xmark text-xl"></i>
                 </button>
               )}
@@ -377,7 +412,7 @@ const DailySummaryView: React.FC<DailySummaryProps> = ({ summaries, onSave, onDe
               <div className="flex gap-3">
                 <button
                   type="button"
-                  onClick={() => setShowForm(false)}
+                  onClick={handleCloseForm}
                   className="px-6 py-3 bg-slate-800 text-slate-400 font-black rounded-xl hover:text-white transition-all text-xs uppercase"
                 >
                   Cancelar
