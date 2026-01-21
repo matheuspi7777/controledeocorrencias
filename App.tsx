@@ -19,8 +19,12 @@ import { MOCK_INCIDENTS } from './constants.ts';
 
 const App: React.FC = () => {
   const [session, setSession] = useState<Session | null>(null);
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const [activeTab, setActiveTab] = useState(() => localStorage.getItem('pmma_active_tab') || 'dashboard');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  useEffect(() => {
+    localStorage.setItem('pmma_active_tab', activeTab);
+  }, [activeTab]);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -39,33 +43,18 @@ const App: React.FC = () => {
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [dailySummaries, setDailySummaries] = useState<DailySummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      if (session) {
-        fetchInitialData();
-      } else {
-        setIsLoading(false);
-      }
-    });
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      if (session) {
-        // Use background refresh if we already have data
-        fetchInitialData(incidents.length === 0 && dailySummaries.length === 0);
-      } else {
-        setIncidents([]);
-        setDailySummaries([]);
-        setIsLoading(false);
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
+    if (session) {
+      // Se já temos dados, fazemos um fetch silencioso (sem travar a UI)
+      const shouldShowLoading = incidents.length === 0 && dailySummaries.length === 0;
+      fetchInitialData(shouldShowLoading);
+    } else {
+      setIsLoading(false);
+      setIsInitialLoad(false);
+    }
+  }, [session]);
 
   const fetchInitialData = async (showLoading = true) => {
     if (showLoading) setIsLoading(true);
@@ -77,7 +66,6 @@ const App: React.FC = () => {
 
       if (incidentsError) throw incidentsError;
 
-      // Map Supabase snake_case to camelCase
       const mappedIncidents: Incident[] = (incidentsData || []).map(row => ({
         id: row.id,
         type: row.type,
@@ -107,8 +95,6 @@ const App: React.FC = () => {
         customType: row.custom_type
       }));
 
-      setIncidents(mappedIncidents);
-
       const { data: summariesData, error: summariesError } = await supabase
         .from('daily_summaries')
         .select('*')
@@ -126,18 +112,43 @@ const App: React.FC = () => {
         createdAt: row.created_at
       }));
 
+      setIncidents(mappedIncidents);
       setDailySummaries(mappedSummaries);
     } catch (err) {
       console.error('Error fetching data:', err);
     } finally {
       setIsLoading(false);
+      setIsInitialLoad(false);
     }
   };
 
-  const [searchTerm, setSearchTerm] = useState('');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
-  const [dashboardStatusFilter, setDashboardStatusFilter] = useState<IncidentStatus | null>(null);
+  const [searchTerm, setSearchTerm] = useState(() => localStorage.getItem('pmma_search_term') || '');
+  const [startDate, setStartDate] = useState(() => localStorage.getItem('pmma_start_date') || '');
+  const [endDate, setEndDate] = useState(() => localStorage.getItem('pmma_end_date') || '');
+  const [dashboardStatusFilter, setDashboardStatusFilter] = useState<IncidentStatus | null>(() => {
+    const saved = localStorage.getItem('pmma_dashboard_filter');
+    return saved ? saved as IncidentStatus : null;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('pmma_search_term', searchTerm);
+  }, [searchTerm]);
+
+  useEffect(() => {
+    localStorage.setItem('pmma_start_date', startDate);
+  }, [startDate]);
+
+  useEffect(() => {
+    localStorage.setItem('pmma_end_date', endDate);
+  }, [endDate]);
+
+  useEffect(() => {
+    if (dashboardStatusFilter) {
+      localStorage.setItem('pmma_dashboard_filter', dashboardStatusFilter);
+    } else {
+      localStorage.removeItem('pmma_dashboard_filter');
+    }
+  }, [dashboardStatusFilter]);
 
   const [viewingIncident, setViewingIncident] = useState<Incident | null>(null);
   const [editingIncident, setEditingIncident] = useState<Incident | null>(null);
@@ -415,7 +426,7 @@ const App: React.FC = () => {
     return <Auth />;
   }
 
-  if (isLoading) {
+  if (isInitialLoad && isLoading) {
     return (
       <div className="min-h-screen bg-[#020617] flex items-center justify-center">
         <div className="text-[#ffd700] text-xl font-black animate-pulse flex flex-col items-center gap-4">
