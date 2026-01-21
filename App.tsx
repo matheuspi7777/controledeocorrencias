@@ -14,13 +14,16 @@ import DailySummaryView from './components/DailySummary.tsx';
 import Reports from './components/Reports.tsx';
 import ConfirmModal from './components/ConfirmModal.tsx';
 import Auth from './components/Auth.tsx';
-import { Incident, IncidentStatus, DailySummary } from './types.ts';
+import AdminPanel from './components/AdminPanel.tsx';
+import { Incident, IncidentStatus, DailySummary, UserProfile } from './types.ts';
 import { MOCK_INCIDENTS } from './constants.ts';
 
 const App: React.FC = () => {
   const [session, setSession] = useState<Session | null>(null);
   const [activeTab, setActiveTab] = useState(() => localStorage.getItem('pmma_active_tab') || 'dashboard');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [isProfileLoading, setIsProfileLoading] = useState(true);
 
   useEffect(() => {
     localStorage.setItem('pmma_active_tab', activeTab);
@@ -47,14 +50,44 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (session) {
+      fetchUserProfile();
       // Se já temos dados, fazemos um fetch silencioso (sem travar a UI)
       const shouldShowLoading = incidents.length === 0 && dailySummaries.length === 0;
       fetchInitialData(shouldShowLoading);
     } else {
       setIsLoading(false);
       setIsInitialLoad(false);
+      setUserProfile(null);
+      setIsProfileLoading(false);
     }
   }, [session]);
+
+  const fetchUserProfile = async () => {
+    if (!session) return;
+    setIsProfileLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', session.user.id)
+        .single();
+
+      if (error) {
+        if (error.code === 'PGRST116') {
+          // Perfil ainda não existe (pode acontecer logo após o signup se o trigger demorar)
+          // Vamos tentar novamente em 2 segundos
+          setTimeout(fetchUserProfile, 2000);
+          return;
+        }
+        throw error;
+      }
+      setUserProfile(data);
+    } catch (err) {
+      console.error('Error fetching profile:', err);
+    } finally {
+      setIsProfileLoading(false);
+    }
+  };
 
   const fetchInitialData = async (showLoading = true) => {
     if (showLoading) setIsLoading(true);
@@ -426,12 +459,36 @@ const App: React.FC = () => {
     return <Auth />;
   }
 
-  if (isInitialLoad && isLoading) {
+  if (isInitialLoad && (isLoading || isProfileLoading)) {
     return (
       <div className="min-h-screen bg-[#020617] flex items-center justify-center">
         <div className="text-[#ffd700] text-xl font-black animate-pulse flex flex-col items-center gap-4">
           <i className="fa-solid fa-shield-halved text-4xl"></i>
           Sincronizando Dados...
+        </div>
+      </div>
+    );
+  }
+
+  // Barreira de Aprovação
+  if (session && userProfile && !userProfile.is_approved) {
+    return (
+      <div className="min-h-screen bg-[#020617] flex items-center justify-center p-4">
+        <div className="bg-[#0f172a]/80 backdrop-blur-xl p-8 rounded-[2.5rem] shadow-2xl border border-slate-800 text-center max-w-sm">
+          <i className="fa-solid fa-clock-rotate-left text-5xl text-[#ffd700] mb-6 animate-pulse"></i>
+          <h2 className="text-2xl font-black text-white uppercase tracking-tight mb-4">Aguardando Aprovação</h2>
+          <p className="text-slate-400 font-bold mb-8">
+            Seu cadastro como <span className="text-white">ID {userProfile.police_id}</span> foi recebido com sucesso.
+          </p>
+          <div className="p-4 bg-blue-900/20 border border-blue-900/50 rounded-2xl text-blue-400 text-xs font-bold mb-8">
+            Para garantir a segurança dos dados policiais, um administrador precisa liberar seu acesso manualmente.
+          </div>
+          <button
+            onClick={() => supabase.auth.signOut()}
+            className="text-slate-500 hover:text-white font-black uppercase tracking-widest text-xs transition-colors"
+          >
+            Sair e Voltar depois
+          </button>
         </div>
       </div>
     );
@@ -469,7 +526,12 @@ const App: React.FC = () => {
         lg:static lg:translate-x-0 lg:z-10
         ${isMobileMenuOpen ? 'translate-x-0 z-[80]' : '-translate-x-full z-10'}
       `}>
-        <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} onLogout={handleLogout} />
+        <Sidebar
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          onLogout={handleLogout}
+          isAdmin={!!userProfile?.is_admin}
+        />
       </aside>
 
       {/* Main Content */}
@@ -515,8 +577,8 @@ const App: React.FC = () => {
               onDelete={handleDeleteSummaryRequest}
             />
           )}
-          {activeTab === 'reports' && <Reports incidents={incidents} dailySummaries={dailySummaries} />}
           {activeTab === 'analysis' && <AIAnalysis incidents={filteredIncidents} />}
+          {activeTab === 'admin' && userProfile?.is_admin && <AdminPanel />}
           {activeTab === 'new' && (
             <div className="max-w-4xl mx-auto">
               <IncidentForm onSave={handleSaveIncident} onCancel={() => setActiveTab('list')} initialData={editingIncident} />

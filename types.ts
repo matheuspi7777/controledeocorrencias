@@ -88,3 +88,11 @@ export interface DashboardStats {
   byType: Record<string, number>;
   byStatus: Record<IncidentStatus, number>;
 }
+
+export interface UserProfile {
+  id: string;
+  police_id: string;
+  is_approved: boolean;
+  is_admin: boolean;
+  created_at: string;
+}

@@ -6,9 +6,10 @@ interface SidebarProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
   onLogout: () => void;
+  isAdmin?: boolean;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onLogout }) => {
+const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onLogout, isAdmin }) => {
   const [customBadge, setCustomBadge] = useState<string | null>(() => {
     return localStorage.getItem('pmma_custom_badge');
   });
@@ -22,6 +23,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onLogout }) 
     { id: 'reports', icon: 'fa-file-pdf', label: 'Relatórios' },
     { id: 'analysis', icon: 'fa-brain', label: 'Inteligência IA' },
     { id: 'new', icon: 'fa-plus-circle', label: 'Registrar Nova' },
+    ...(isAdmin ? [{ id: 'admin', icon: 'fa-user-shield', label: 'Administração' }] : []),
   ];
 
   const handleBadgeClick = () => {
