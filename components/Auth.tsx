@@ -4,7 +4,7 @@ import { supabase } from '../services/supabaseClient';
 
 const Auth: React.FC = () => {
     const [loading, setLoading] = useState(false);
-    const [email, setEmail] = useState('');
+    const [policeId, setPoliceId] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState<string | null>(null);
     const [isSignUp, setIsSignUp] = useState(false);
@@ -14,13 +14,27 @@ const Auth: React.FC = () => {
         setLoading(true);
         setError(null);
 
+        // Map ID to a dummy email format for Supabase Auth
+        const internalEmail = `${policeId.trim().toLowerCase()}@pmma.local`;
+
         try {
             if (isSignUp) {
-                const { error } = await supabase.auth.signUp({ email, password });
+                const { error } = await supabase.auth.signUp({
+                    email: internalEmail,
+                    password,
+                    options: {
+                        data: {
+                            police_id: policeId.trim()
+                        }
+                    }
+                });
                 if (error) throw error;
-                alert('Verifique seu e-mail para confirmar o cadastro!');
+                alert('Solicitação de cadastro enviada! Aguarde a liberação do administrador.');
             } else {
-                const { error } = await supabase.auth.signInWithPassword({ email, password });
+                const { error } = await supabase.auth.signInWithPassword({
+                    email: internalEmail,
+                    password
+                });
                 if (error) throw error;
             }
         } catch (err: any) {
@@ -48,16 +62,16 @@ const Auth: React.FC = () => {
 
                     <form onSubmit={handleAuth} className="space-y-6">
                         <div className="space-y-2">
-                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">E-mail Corporativo</label>
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">ID Policial (Matrícula/CPF)</label>
                             <div className="relative group">
-                                <i className="fa-solid fa-envelope absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-[#ffd700] transition-colors"></i>
+                                <i className="fa-solid fa-id-card absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-[#ffd700] transition-colors"></i>
                                 <input
-                                    type="email"
+                                    type="text"
                                     required
-                                    placeholder="exemplo@pm.ma.gov.br"
+                                    placeholder="Digite seu ID"
                                     className="w-full pl-12 pr-4 py-4 bg-slate-900/50 border-2 border-slate-800 rounded-2xl text-white outline-none focus:border-[#ffd700] focus:ring-4 focus:ring-[#ffd700]/5 transition-all font-bold placeholder:text-slate-600"
-                                    value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
+                                    value={policeId}
+                                    onChange={(e) => setPoliceId(e.target.value)}
                                 />
                             </div>
                         </div>
