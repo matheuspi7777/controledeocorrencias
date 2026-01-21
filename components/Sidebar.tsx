@@ -63,8 +63,8 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onLogout, is
           title="Clique para alterar a imagem do brasão"
         >
           {customBadge ? (
-            <div className="w-full h-full flex items-center justify-center overflow-hidden rounded-lg border-2 border-[#ffd700] shadow-[0_4px_10px_rgba(0,0,0,0.7)] bg-black/20">
-              <img src={customBadge} alt="Brasão Personalizado" className="w-full h-full object-contain" />
+            <div className="w-full h-full flex items-center justify-center overflow-hidden rounded-lg border-2 border-[#ffd700] shadow-[0_4px_10px_rgba(0,0,0,0.7)] bg-white">
+              <img src={customBadge} alt="Brasão Personalizado" className="w-full h-full object-fill" />
             </div>
           ) : (
             <svg viewBox="0 0 100 120" className="w-full h-full drop-shadow-[0_8px_15px_rgba(0,0,0,0.7)] overflow-visible">
