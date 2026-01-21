@@ -490,18 +490,34 @@ const App: React.FC = () => {
         <div className="bg-[#0f172a]/80 backdrop-blur-xl p-8 rounded-[2.5rem] shadow-2xl border border-slate-800 text-center max-w-sm">
           <i className="fa-solid fa-clock-rotate-left text-5xl text-[#ffd700] mb-6 animate-pulse"></i>
           <h2 className="text-2xl font-black text-white uppercase tracking-tight mb-4">Aguardando Aprovação</h2>
-          <p className="text-slate-400 font-bold mb-8">
-            Seu cadastro foi recebido com sucesso.
-          </p>
-          <div className="p-4 bg-blue-900/20 border border-blue-900/50 rounded-2xl text-blue-400 text-xs font-bold mb-8 text-left">
-            Por segurança, um administrador do 43° BPM precisa liberar seu acesso manualmente no sistema.
+
+          <div className="mb-6 p-3 bg-slate-900/50 rounded-xl border border-slate-800">
+            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Usuário Logado:</p>
+            <p className="text-white font-bold truncate">{session.user.email}</p>
           </div>
-          <button
-            onClick={() => supabase.auth.signOut()}
-            className="text-slate-500 hover:text-white font-black uppercase tracking-widest text-xs transition-colors"
-          >
-            Sair e Voltar depois
-          </button>
+
+          <p className="text-slate-400 font-bold mb-8 text-sm">
+            Seu cadastro foi recebido, mas este usuário específico ainda não tem permissão para acessar os dados.
+          </p>
+
+          <div className="p-4 bg-blue-900/20 border border-blue-900/50 rounded-2xl text-blue-400 text-xs font-bold mb-8 text-left">
+            Por segurança, um administrador do 43° BPM precisa liberar seu acesso manualmente.
+          </div>
+
+          <div className="flex flex-col gap-4">
+            <button
+              onClick={() => window.location.reload()}
+              className="w-full py-3 bg-slate-800 hover:bg-slate-700 text-white font-black rounded-xl text-xs uppercase tracking-widest transition-all"
+            >
+              Tentar Novamente (F5)
+            </button>
+            <button
+              onClick={() => supabase.auth.signOut()}
+              className="text-red-500 hover:text-red-400 font-black uppercase tracking-widest text-[10px] transition-colors"
+            >
+              Sair desta conta e entrar com outra
+            </button>
+          </div>
         </div>
       </div>
     );
