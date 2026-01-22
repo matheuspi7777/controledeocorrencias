@@ -19,7 +19,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onLogout, is
   const menuItems = [
     { id: 'dashboard', icon: 'fa-chart-line', label: 'Painel Geral' },
     { id: 'list', icon: 'fa-list-check', label: 'Ocorrências' },
-    { id: 'daily', icon: 'fa-file-medical', label: 'Resumo Diário' },
+
     { id: 'reports', icon: 'fa-file-pdf', label: 'Relatórios' },
     { id: 'analysis', icon: 'fa-brain', label: 'Inteligência IA' },
     { id: 'new', icon: 'fa-plus-circle', label: 'Registrar Nova' },

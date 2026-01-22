@@ -1,13 +1,11 @@
 
 import * as React from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from 'recharts';
-import { Incident, IncidentType, IncidentStatus, DailySummary } from '../types.ts';
+import { Incident, IncidentType, IncidentStatus } from '../types.ts';
 
 interface DashboardProps {
   incidents: Incident[];
   filteredIncidents: Incident[];
-  summaries: DailySummary[];
-  filteredSummaries: DailySummary[];
   isSearching: boolean;
   activeFilter: IncidentStatus | null;
   onFilterChange: (status: IncidentStatus | null) => void;
@@ -38,54 +36,27 @@ const CONDUZIDOS_COLORS = ['#ef4444', '#3b82f6', '#ec4899', '#6366f1', '#f43f5e'
 const Dashboard: React.FC<DashboardProps> = ({
   incidents,
   filteredIncidents,
-  summaries,
-  filteredSummaries,
   isSearching,
   activeFilter,
   onFilterChange,
   onCardClick
 }) => {
   const baseIncidents = isSearching ? filteredIncidents : incidents;
-  const baseSummaries = isSearching ? filteredSummaries : summaries;
 
-  const flagrantesEmOcorrencias = baseIncidents.filter(i => i.hasFlagrante === 'Sim').length;
-  const flagrantesEmResumo = baseSummaries.reduce((sum: number, s: DailySummary) => sum + (s.counts.flagrantes || 0), 0);
-  const totalFlagrantesGeral = flagrantesEmOcorrencias + flagrantesEmResumo;
+  const totalOcorrenciasGeral = baseIncidents.length;
+  const totalBO = baseIncidents.filter(i => !i.isTco).length;
+  const totalTCO = baseIncidents.filter(i => i.isTco).length;
 
-  const conduzidosEmOcorrencias = baseIncidents.reduce((sum: number, i: Incident) => sum + (i.conductedCount || 0), 0);
-  const conduzidosEmResumo = baseSummaries.reduce((sum: number, s: DailySummary) =>
-    sum + (Object.values(s.conduzidos) as number[]).reduce((a, b) => a + b, 0), 0
-  );
-  const totalConduzidosGeral = conduzidosEmOcorrencias + conduzidosEmResumo;
+  const totalCvli = baseIncidents.filter(i => i.type === IncidentType.CVLI).length;
+  const totalArmaFogo = baseIncidents.filter(i => i.type === IncidentType.ARMA_FOGO).length;
+  const totalSimulacros = baseIncidents.filter(i => i.type === IncidentType.SIMULACRO).length;
+  const totalMorteIntervencao = baseIncidents.filter(i => i.type === IncidentType.MORTE_INTERVENCAO).length;
 
-  const totalTCOGeral = baseSummaries.reduce((sum: number, s: DailySummary) => sum + (s.counts.tco || 0), 0);
+  const totalFlagrantes = baseIncidents.filter(i => i.hasFlagrante === 'Sim').length;
+  const totalConduzidos = baseIncidents.reduce((sum, i) => sum + (i.conductedCount || 0), 0);
 
-  const totalCvli = baseIncidents.filter(i => i.type === IncidentType.CVLI).length +
-    baseSummaries.reduce((sum: number, s: DailySummary) => {
-      const c = s.counts || {};
-      return sum + (c['CVLI'] || c['cvli'] || c['HOMICIDIO'] || c['homicidio'] || 0);
-    }, 0);
-
-  const totalArmaFogo = baseIncidents.filter(i => i.type === IncidentType.ARMA_FOGO).length +
-    baseSummaries.reduce((sum: number, s: DailySummary) => {
-      const c = s.counts || {};
-      return sum + (c['arma_fogo'] || c['ARMA_FOGO'] || c['APREENSÃO DE ARMA DE FOGO'] || 0);
-    }, 0);
-
-  const totalMorteIntervencao = baseIncidents.filter(i => i.type === IncidentType.MORTE_INTERVENCAO).length +
-    baseSummaries.reduce((sum: number, s: DailySummary) => {
-      const c = s.counts || {};
-      return sum + (c['MORTE POR INTERVENÇÃO POLICIAL'] || c['morte_intervencao'] || 0);
-    }, 0);
-
-  const totalOcorrenciasGeral = baseIncidents.length + baseSummaries.reduce((sum: number, s: DailySummary) => sum + (s.counts.bo || 0), 0);
-
-  const perfilConduzidosMap = {
-    masculino: baseSummaries.reduce((sum: number, s: DailySummary) => sum + (s.conduzidos.masculino || 0), 0),
-    feminino: baseSummaries.reduce((sum: number, s: DailySummary) => sum + (s.conduzidos.feminino || 0), 0),
-    menor: baseSummaries.reduce((sum: number, s: DailySummary) => sum + (s.conduzidos.menor_infrator || 0), 0)
-  };
-
+  // Perfil Conduzidos
+  const perfilConduzidosMap = { masculino: 0, feminino: 0, menor: 0 };
   baseIncidents.forEach(inc => {
     const profiles = inc.conductedProfiles || (inc.conductedSex ? [inc.conductedSex] : []);
     profiles.forEach(sex => {
@@ -101,41 +72,48 @@ const Dashboard: React.FC<DashboardProps> = ({
     { name: 'Menor', value: perfilConduzidosMap.menor }
   ].filter(d => d.value > 0);
 
-  const occurrenceLabels: Record<string, string> = {
-    bo: 'B.O', tco: 'TCO', tentativa_homicidio: 'TENT. HOM', tentativa_roubo: 'TENT. ROUBO',
-    tentativa_latrocinio: 'TENT. LATROCÍNIO', tentativa_feminicidio: 'TENT. FEMINICÍDIO',
-    violencia_domestica: 'VIOLÊNCIA DOMÉSTICA', estupro_vulneravel: 'ESTUPRO', desacato: 'DESACATO',
-    ameaca: 'AMEAÇA', arrombamento: 'ARROMBAMENTO', acidente_transito: 'ACID. TRÂNSITO',
-    embriaguez: 'EMBRIAGUEZ', consumo_drogas: 'DROGAS (CONS)', quebra_medida: 'MED. PROTETIVA'
-  };
-
-  const aggregatedNatureCounts: Record<string, number> = {};
-  baseSummaries.forEach(summary => {
-    if (summary.counts) {
-      (Object.entries(summary.counts) as [string, number][]).forEach(([key, value]) => {
-        if (key === 'flagrantes') return;
-        aggregatedNatureCounts[key] = (aggregatedNatureCounts[key] || 0) + value;
-      });
-    }
+  // Incidência por Tipo (Pie Chart e Lista Bottom)
+  const natureCounts: Record<string, number> = {};
+  baseIncidents.forEach(inc => {
+    // Usar o incidentNumber type ou algo simples
+    const typeLabel = inc.type as string; // IncidentType enum value
+    natureCounts[typeLabel] = (natureCounts[typeLabel] || 0) + 1;
   });
 
-  const summaryOccurrenceData = (Object.entries(aggregatedNatureCounts) as [string, number][])
-    .map(([key, value]) => ({
-      name: occurrenceLabels[key] || key,
-      value: value
-    }))
-    .filter(d => d.value > 0)
-    .sort((a, b) => b.value - a.value);
+  const pieData = Object.entries(natureCounts).map(([name, value]) => ({
+    name,
+    value
+  })).sort((a, b) => b.value - a.value); // Sort descending
+
+  const detailedNatureData = pieData.filter(d => d.value > 0);
 
   const stats = [
     {
-      label: 'Ocorrências Gerais',
+      label: 'Geral',
       value: totalOcorrenciasGeral,
       icon: 'fa-file-shield',
       color: 'bg-[#ffd700]/10',
       textColor: 'text-[#ffd700]',
       borderColor: 'border-[#ffd700]/20',
       searchTerm: ''
+    },
+    {
+      label: 'Boletim (B.O.)',
+      value: totalBO,
+      icon: 'fa-file-lines',
+      color: 'bg-blue-600/10',
+      textColor: 'text-blue-500',
+      borderColor: 'border-blue-600/20',
+      searchTerm: 'BO'
+    },
+    {
+      label: 'TCO',
+      value: totalTCO,
+      icon: 'fa-file-signature',
+      color: 'bg-purple-600/10',
+      textColor: 'text-purple-500',
+      borderColor: 'border-purple-600/20',
+      searchTerm: 'TCO' // Será? TCO não é tipo, é flag. Mas searchTerm pode ser special.
     },
     {
       label: 'CVLI',
@@ -148,6 +126,16 @@ const Dashboard: React.FC<DashboardProps> = ({
       searchTerm: 'CVLI'
     },
     {
+      label: 'Flagrantes',
+      value: totalFlagrantes,
+      icon: 'fa-handcuffs',
+      color: totalFlagrantes > 0 ? 'bg-orange-600/20' : 'bg-slate-900/20',
+      textColor: totalFlagrantes > 0 ? 'text-orange-500' : 'text-slate-500',
+      borderColor: totalFlagrantes > 0 ? 'border-orange-600' : 'border-slate-800',
+      isCritical: totalFlagrantes > 0,
+      searchTerm: 'FLAGRANTE'
+    },
+    {
       label: 'Arma de Fogo',
       value: totalArmaFogo,
       icon: 'fa-gun',
@@ -158,27 +146,18 @@ const Dashboard: React.FC<DashboardProps> = ({
       searchTerm: IncidentType.ARMA_FOGO
     },
     {
-      label: 'MORTE POR INTERVENÇÃO POLICIAL',
-      value: totalMorteIntervencao,
-      icon: 'fa-handcuffs',
-      color: totalMorteIntervencao > 0 ? 'bg-red-900/20' : 'bg-slate-900/20',
-      textColor: totalMorteIntervencao > 0 ? 'text-red-400' : 'text-slate-500',
-      borderColor: totalMorteIntervencao > 0 ? 'border-red-900' : 'border-slate-800',
-      isCritical: totalMorteIntervencao > 0,
-      searchTerm: 'MORTE POR INTERVENÇÃO POLICIAL'
+      label: 'Simulacros',
+      value: totalSimulacros,
+      icon: 'fa-person-rifle',
+      color: totalSimulacros > 0 ? 'bg-teal-600/20' : 'bg-slate-900/20',
+      textColor: totalSimulacros > 0 ? 'text-teal-400' : 'text-slate-500',
+      borderColor: totalSimulacros > 0 ? 'border-teal-600' : 'border-slate-800',
+      isPositive: totalSimulacros > 0,
+      searchTerm: IncidentType.SIMULACRO
     },
     {
-      label: 'TCO (Termo Circunst.)',
-      value: totalTCOGeral,
-      icon: 'fa-file-signature',
-      color: 'bg-blue-900/10',
-      textColor: 'text-blue-400',
-      borderColor: 'border-blue-900/30',
-      searchTerm: 'TCO'
-    },
-    {
-      label: 'Conduzidos Totais',
-      value: totalConduzidosGeral,
+      label: 'Conduzidos',
+      value: totalConduzidos,
       icon: 'fa-user-lock',
       color: 'bg-slate-900/20',
       textColor: 'text-slate-300',
@@ -187,29 +166,24 @@ const Dashboard: React.FC<DashboardProps> = ({
     },
   ];
 
-  const pieData = Object.values(IncidentType).map(type => ({
-    name: type,
-    value: baseIncidents.filter(i => i.type === type).length
-  })).filter(d => d.value > 0);
-
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {stats.map((stat: any, idx) => (
           <div
             key={idx}
-            onClick={() => onCardClick(stat.searchTerm)}
-            className={`p-6 rounded-3xl shadow-lg border flex flex-col justify-between h-40 transition-all duration-300 hover:scale-[1.02] cursor-pointer ${stat.borderColor} ${stat.color} ${stat.isCritical ? 'shadow-red-600/10' : ''} ${stat.isPositive ? 'shadow-emerald-600/10' : ''}`}
+            onClick={() => { if (stat.searchTerm) onCardClick(stat.searchTerm); }}
+            className={`p-4 rounded-3xl shadow-lg border flex flex-col justify-between h-32 transition-all duration-300 hover:scale-[1.02] cursor-pointer ${stat.borderColor} ${stat.color} ${stat.isCritical ? 'shadow-red-600/10' : ''} ${stat.isPositive ? 'shadow-emerald-600/10' : ''}`}
           >
             <div className="flex justify-between items-start">
-              <div className={`w-12 h-12 rounded-xl flex items-center justify-center bg-white/5 text-white border border-white/10 ${stat.isCritical ? 'bg-red-600/20 border-red-600' : ''} ${stat.isPositive ? 'bg-emerald-600/20 border-emerald-600' : ''}`}>
-                <i className={`fa-solid ${stat.icon} text-xl ${stat.isCritical ? 'text-red-500' : ''} ${stat.isPositive ? 'text-emerald-500' : ''}`}></i>
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center bg-white/5 text-white border border-white/10 ${stat.isCritical ? 'bg-red-600/20 border-red-600' : ''} ${stat.isPositive ? 'bg-emerald-600/20 border-emerald-600' : ''}`}>
+                <i className={`fa-solid ${stat.icon} text-lg ${stat.isCritical ? 'text-red-500' : ''} ${stat.isPositive ? 'text-emerald-500' : ''}`}></i>
               </div>
-              <span className={`text-4xl font-black ${stat.textColor}`}>{stat.value}</span>
+              <span className={`text-3xl font-black ${stat.textColor}`}>{stat.value}</span>
             </div>
             <div>
               <p className={`text-[10px] font-black uppercase tracking-widest ${stat.textColor} opacity-90 leading-tight`}>{stat.label}</p>
-              <div className={`h-1 w-10 mt-2 rounded-full ${stat.isCritical ? 'bg-red-600 opacity-100' : (stat.isPositive ? 'bg-emerald-600 opacity-100' : 'bg-current opacity-30')}`}></div>
+              <div className={`h-1 w-8 mt-2 rounded-full ${stat.isCritical ? 'bg-red-600 opacity-100' : (stat.isPositive ? 'bg-emerald-600 opacity-100' : 'bg-current opacity-30')}`}></div>
             </div>
           </div>
         ))}
@@ -281,7 +255,7 @@ const Dashboard: React.FC<DashboardProps> = ({
 
         <div className="bg-[#0f172a] p-8 rounded-[2rem] shadow-xl border border-slate-800 min-w-0">
           <h3 className="text-sm font-black text-slate-300 flex items-center gap-3 uppercase tracking-widest mb-8">
-            <i className="fa-solid fa-users-viewfinder text-blue-500"></i> Perfil de Conduzidos Consolidado
+            <i className="fa-solid fa-users-viewfinder text-blue-500"></i> Perfil de Conduzidos
           </h3>
           <div className="h-80 w-full relative min-h-[320px]">
             {conduzidosChartData.length > 0 ? (
@@ -326,17 +300,17 @@ const Dashboard: React.FC<DashboardProps> = ({
 
       <div className="bg-[#0f172a] p-8 rounded-[2rem] shadow-xl border border-slate-800">
         <h3 className="text-sm font-black text-slate-100 flex items-center gap-3 uppercase tracking-widest mb-6">
-          <i className="fa-solid fa-list-ol text-[#ffd700]"></i> Outras Naturezas Consolidadas
+          <i className="fa-solid fa-list-ol text-[#ffd700]"></i> Detalhamento por Natureza
         </h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {summaryOccurrenceData.length > 0 ? summaryOccurrenceData.map((item, idx) => {
-            const isCustom = !Object.values(occurrenceLabels).includes(item.name);
-            const isCritical = item.name.toUpperCase().includes('CVLI') || item.name.toUpperCase().includes('MORTE') || item.name.toUpperCase().includes('HOMICIDIO');
+          {detailedNatureData.length > 0 ? detailedNatureData.map((item, idx) => {
+            const isCritical = (item.name as string).includes('CVLI') || (item.name as string).includes('MORTE') || (item.name as string).includes('HOMICÍDIO');
+            const isTcoType = false; // Como distinguir visualmente?
 
             return (
-              <div key={idx} className={`p-4 rounded-2xl border flex justify-between items-center transition-all ${isCritical ? 'bg-red-900/40 border-red-600 shadow-[0_0_15px_rgba(220,38,38,0.2)]' : (isCustom ? 'bg-[#ffd700]/5 border-[#ffd700]/20' : 'bg-white/5 border-white/5')
+              <div key={idx} className={`p-4 rounded-2xl border flex justify-between items-center transition-all ${isCritical ? 'bg-red-900/40 border-red-600 shadow-[0_0_15px_rgba(220,38,38,0.2)]' : 'bg-white/5 border-white/5'
                 }`}>
-                <span className={`text-[10px] font-black uppercase truncate pr-2 ${isCritical ? 'text-red-500' : (isCustom ? 'text-[#ffd700]' : 'text-slate-400')}`}>
+                <span className={`text-[10px] font-black uppercase truncate pr-2 ${isCritical ? 'text-red-500' : 'text-slate-400'}`}>
                   {item.name}
                 </span>
                 <span className={`text-sm font-black ${isCritical ? 'text-red-500' : 'text-[#ffd700]'}`}>
@@ -346,12 +320,12 @@ const Dashboard: React.FC<DashboardProps> = ({
             );
           }) : (
             <div className="col-span-full py-6 text-center text-slate-600 font-black uppercase text-[10px] tracking-widest">
-              Nenhuma outra natureza registrada nos resumos filtrados.
+              Nenhuma natureza registrada no período.
             </div>
           )}
           <div className="bg-green-600/10 p-4 rounded-2xl border border-green-500/20 flex justify-between items-center">
             <span className="text-[10px] font-black text-green-400 uppercase">FLAGRANTES (TOTAL)</span>
-            <span className="text-sm font-black text-green-400">{totalFlagrantesGeral}</span>
+            <span className="text-sm font-black text-green-400">{totalFlagrantes}</span>
           </div>
         </div>
       </div>

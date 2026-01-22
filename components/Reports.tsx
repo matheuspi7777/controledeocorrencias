@@ -1,35 +1,36 @@
 
-import React, { useState, useMemo } from 'react';
-import { Incident, IncidentType, DailySummary } from '../types';
+import React, { useState, useEffect } from 'react';
+import { Incident, IncidentType } from '../types';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
+import { saveAs } from 'file-saver';
 
 interface ReportsProps {
   incidents: Incident[];
-  dailySummaries: DailySummary[];
 }
 
-const Reports: React.FC<ReportsProps> = ({ incidents, dailySummaries }) => {
-  const [reportStartDate, setReportStartDate] = useState('');
-  const [reportEndDate, setReportEndDate] = useState('');
-  const [selectedType, setSelectedType] = useState<string>('TODOS');
-  const [activeSubTab, setActiveSubTab] = useState<'incidents' | 'summaries'>('incidents');
+const Reports: React.FC<ReportsProps> = ({ incidents }) => {
   const [isGenerating, setIsGenerating] = useState(false);
-
   const [selectedIncidentIds, setSelectedIncidentIds] = useState<Set<string>>(new Set());
-  const [selectedSummaryIds, setSelectedSummaryIds] = useState<Set<string>>(new Set());
 
-  const natureLabels: Record<string, string> = {
-    bo: 'B.O', tco: 'TCO', tentativa_homicidio: 'TENT. HOMICÍDIO', tentativa_roubo: 'TENT. ROUBO',
-    tentativa_latrocinio: 'TENT. LATROCÍNIO', tentativa_feminicidio: 'TENT. FEMINICÍDIO',
-    violencia_domestica: 'VIOLÊNCIA DOMÉSTICA', estupro_vulneravel: 'ESTUPRO VULNERÁVEL',
-    apreensao_veiculo: 'APREENSÃO VEÍCULO', desacato: 'DESACATO',
-    ameaca: 'AMEAÇA', arrombamento: 'ARROMBAMENTO', acidente_transito: 'ACIDENTE TRÂNSITO',
-    embriaguez: 'EMBRIAGUEZ', flagrantes: 'FLAGRANTES', quebra_medida: 'MEDIDA PROTETIVA'
+  // By default, start with no incidents selected
+  useEffect(() => {
+    setSelectedIncidentIds(new Set());
+  }, [incidents]);
+
+  const toggleIncidentSelection = (id: string) => {
+    const next = new Set(selectedIncidentIds);
+    next.has(id) ? next.delete(id) : next.add(id);
+    setSelectedIncidentIds(next);
   };
 
-  const conduzidosLabels: Record<string, string> = {
-    masculino: 'Masc', feminino: 'Fem',
-    menor_infrator: 'Menor Infr',
-    morte_intervencao: 'Morte Interv'
+  const selectAll = () => {
+    const next = new Set(incidents.map(i => i.id));
+    setSelectedIncidentIds(next);
+  };
+
+  const clearSelection = () => {
+    setSelectedIncidentIds(new Set());
   };
 
   const getCleanDescription = (inc: Incident) => {
@@ -38,72 +39,14 @@ const Reports: React.FC<ReportsProps> = ({ incidents, dailySummaries }) => {
     return inc.description.replace(regex, '').trim();
   };
 
-  const filteredIncidents = useMemo(() => {
-    return incidents.filter(inc => {
-      const incDate = inc.date.split('T')[0];
-      const matchesDate = (!reportStartDate || incDate >= reportStartDate) &&
-        (!reportEndDate || incDate <= reportEndDate);
-      const matchesType = selectedType === 'TODOS' || inc.type === selectedType;
-      return matchesDate && matchesType;
-    }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  }, [incidents, reportStartDate, reportEndDate, selectedType]);
-
-  const filteredSummaries = useMemo(() => {
-    return dailySummaries.filter(sum => {
-      const sumDate = sum.date;
-      return (!reportStartDate || sumDate >= reportStartDate) &&
-        (!reportEndDate || sumDate <= reportEndDate);
-    }).sort((a, b) => a.date.localeCompare(b.date));
-  }, [dailySummaries, reportStartDate, reportEndDate]);
-
-  const toggleIncidentSelection = (id: string) => {
-    const next = new Set(selectedIncidentIds);
-    next.has(id) ? next.delete(id) : next.add(id);
-    setSelectedIncidentIds(next);
-  };
-
-  const toggleSummarySelection = (id: string) => {
-    const next = new Set(selectedSummaryIds);
-    next.has(id) ? next.delete(id) : next.add(id);
-    setSelectedSummaryIds(next);
-  };
-
-  const selectAllVisible = () => {
-    if (activeSubTab === 'incidents') {
-      const next = new Set(selectedIncidentIds);
-      filteredIncidents.forEach(i => next.add(i.id));
-      setSelectedIncidentIds(next);
-    } else {
-      const next = new Set(selectedSummaryIds);
-      filteredSummaries.forEach(s => next.add(s.id));
-      setSelectedSummaryIds(next);
-    }
-  };
-
-  const clearVisibleSelection = () => {
-    if (activeSubTab === 'incidents') {
-      const next = new Set(selectedIncidentIds);
-      filteredIncidents.forEach(i => next.delete(i.id));
-      setSelectedIncidentIds(next);
-    } else {
-      const next = new Set(selectedSummaryIds);
-      filteredSummaries.forEach(s => next.delete(s.id));
-      setSelectedSummaryIds(next);
-    }
-  };
-
-  const totalSelected = selectedIncidentIds.size + selectedSummaryIds.size;
-
   const generatePDF = () => {
-    if (totalSelected === 0) return;
+    if (selectedIncidentIds.size === 0) return;
     setIsGenerating(true);
 
     setTimeout(() => {
       try {
-        const { jsPDF } = (window as any).jspdf;
         const doc = new jsPDF();
         const exportIncidents = incidents.filter(i => selectedIncidentIds.has(i.id));
-        const exportSummaries = dailySummaries.filter(s => selectedSummaryIds.has(s.id));
 
         doc.setFontSize(14);
         doc.setTextColor(0, 43, 92);
@@ -117,222 +60,156 @@ const Reports: React.FC<ReportsProps> = ({ incidents, dailySummaries }) => {
         doc.text("RELATÓRIO ESTATÍSTICO OPERACIONAL", 105, 42, { align: "center" });
         doc.setFontSize(9);
         doc.setTextColor(100, 100, 100);
-        const periodText = reportStartDate && reportEndDate ? `Período: ${reportStartDate} até ${reportEndDate}` : "Período: Integral";
-        doc.text(periodText, 20, 52);
-        doc.text(`Gerado em: ${new Date().toLocaleString()}`, 190, 52, { align: "right" });
+
+        doc.text(`Gerado em: ${new Date().toLocaleString('pt-BR')}`, 190, 52, { align: "right" });
 
         let currentY: number = 65;
 
-        if (exportIncidents.length > 0) {
-          const titleResumo = selectedType === 'TODOS' ? "RESUMO GERAL DE ATIVIDADES" : `DADOS CONSOLIDADOS: ${selectedType}`;
-          doc.setFillColor(0, 43, 92);
-          doc.roundedRect(20, currentY, 170, 10, 2, 2, 'F');
-          doc.setFontSize(10);
-          doc.setTextColor(255, 255, 255);
-          doc.setFont("helvetica", "bold");
-          doc.text(titleResumo, 105, currentY + 7, { align: "center" });
-          currentY += 10;
-          doc.setFillColor(248, 250, 252);
-          doc.setDrawColor(226, 232, 240);
-          doc.rect(20, currentY, 170, 40, 'FD');
-          doc.setFontSize(9);
-          doc.setTextColor(30, 41, 59);
-          doc.setFont("helvetica", "normal");
+        // Statistics Summary Section
+        doc.setFillColor(0, 43, 92);
+        doc.roundedRect(20, currentY, 170, 10, 2, 2, 'F');
+        doc.setFontSize(10);
+        doc.setTextColor(255, 255, 255);
+        doc.setFont("helvetica", "bold");
+        doc.text("DADOS CONSOLIDADOS", 105, currentY + 7, { align: "center" });
+        currentY += 10;
+        doc.setFillColor(248, 250, 252);
+        doc.setDrawColor(226, 232, 240);
+        doc.rect(20, currentY, 170, 45, 'FD');
+        doc.setFontSize(9);
+        doc.setTextColor(30, 41, 59);
+        doc.setFont("helvetica", "normal");
 
-          // Agregação de Totais para o Resumo Geral
-          const incBO = exportIncidents.length;
-          const sumBO = exportSummaries.reduce((s, sum) => s + (sum.counts.bo || 0), 0);
-          const sumTCO = exportSummaries.reduce((s, sum) => s + (sum.counts.tco || 0), 0);
+        const totalIncidents = exportIncidents.length;
+        const totalConduzidos = exportIncidents.reduce((acc, curr) => acc + (curr.conductedCount || 0), 0);
+        const totalFlagrantes = exportIncidents.filter(i => i.hasFlagrante === 'Sim').length;
+        const totalWeapons = exportIncidents.filter(i => i.type === IncidentType.ARMA_FOGO).reduce((acc, curr) => acc + (curr.weaponCount || 0), 0);
+        const tcoCount = exportIncidents.filter(i => i.isTco).length;
+        const boCount = totalIncidents - tcoCount;
 
-          const totalFinalBO = incBO + sumBO;
-          const totalFinalTCO = sumTCO;
-
-          const incFlagrantes = exportIncidents.filter(i => i.hasFlagrante === 'Sim').length;
-          const sumFlagrantes = exportSummaries.reduce((s, sum) => s + (sum.counts.flagrantes || 0), 0);
-          const totalFinalFlagrantes = incFlagrantes + sumFlagrantes;
-
-          const incConducoes = exportIncidents.reduce((s, i) => s + (i.conductedCount || 0), 0);
-          const sumConducoes = exportSummaries.reduce((s, sum) => s +
-            (sum.conduzidos.masculino || 0) +
-            (sum.conduzidos.feminino || 0) +
-            (sum.conduzidos.menor_infrator || 0)
-            , 0);
-          const totalFinalConducoes = incConducoes + sumConducoes;
-
-          if (selectedType === IncidentType.ARMA_FOGO) {
-            const totalWeapons = exportIncidents.reduce((s, i) => s + (i.weaponCount || 1), 0);
-            const totalIntact = exportIncidents.reduce((s, i) => s + (i.ammoIntactCount || 0), 0);
-            const totalDeflagrated = exportIncidents.reduce((s, i) => s + (i.ammoDeflagratedCount || 0), 0);
-            const avgAmmo = totalWeapons > 0 ? (totalIntact / totalWeapons).toFixed(1) : 0;
-            doc.setFont("helvetica", "bold");
-            doc.text(`TOTAL DE ARMAS APREENDIDAS:`, 25, currentY + 10);
-            doc.setFont("helvetica", "normal");
-            doc.text(`${totalWeapons} un.`, 85, currentY + 10);
-            doc.setFont("helvetica", "bold");
-            doc.text(`Munições (Intactas/Def.):`, 25, currentY + 18);
-            doc.setFont("helvetica", "normal");
-            doc.text(`${totalIntact} / ${totalDeflagrated}`, 85, currentY + 18);
-            doc.setFont("helvetica", "bold");
-            doc.text(`Média Munição/Arma:`, 25, currentY + 26);
-            doc.setFont("helvetica", "normal");
-            doc.text(`${avgAmmo}`, 85, currentY + 26);
-            doc.setFont("helvetica", "bold");
-            doc.text(`Ocorrências c/ Flagrante:`, 115, currentY + 10);
-            doc.setFont("helvetica", "normal");
-            doc.text(`${totalFinalFlagrantes}`, 165, currentY + 10);
-            doc.setFont("helvetica", "bold");
-            doc.text(`Pessoas Conduzidas:`, 115, currentY + 18);
-            doc.setFont("helvetica", "normal");
-            doc.text(`${totalFinalConducoes}`, 165, currentY + 18);
-            doc.setFont("helvetica", "bold");
-            doc.text(`Total de Ocorrências:`, 115, currentY + 26);
-            doc.setFont("helvetica", "normal");
-            doc.text(`${totalFinalBO}`, 165, currentY + 26);
-          } else if (selectedType === IncidentType.DROGAS) {
-            const drugSummary = exportIncidents.map(i => i.drugDetails).filter(Boolean).join(', ');
-            doc.text(`- Volume de Ocorrências: ${totalFinalBO}`, 25, currentY + 10);
-            doc.text(`- Total de Indivíduos Detidos: ${totalFinalConducoes}`, 25, currentY + 18);
-            doc.text(`- Registros de Flagrante: ${totalFinalFlagrantes}`, 25, currentY + 26);
-            doc.text(`- Detalhes principais observados:`, 110, currentY + 10);
-            const splitDrugs = doc.splitTextToSize(drugSummary || 'N/A', 60);
-            doc.text(splitDrugs.slice(0, 3), 110, currentY + 15);
-          } else {
-            doc.text(`- Total de B.O / Ocorrências Gerais: ${totalFinalBO}`, 25, currentY + 10);
-            doc.text(`- Total de TCO: ${totalFinalTCO}`, 25, currentY + 18);
-            doc.text(`- Total de Conduções Efetuadas: ${totalFinalConducoes}`, 110, currentY + 10);
-            doc.text(`- Flagrantes Delitos: ${totalFinalFlagrantes}`, 110, currentY + 18);
+        // Count CVLI victims (victims are stored as comma-separated names)
+        const cvliIncidents = exportIncidents.filter(i => i.type === IncidentType.CVLI);
+        const totalCvliVictims = cvliIncidents.reduce((acc, curr) => {
+          if (curr.victim) {
+            const victims = curr.victim.split(',').filter(v => v.trim() !== '');
+            return acc + victims.length;
           }
-          currentY += 50;
+          return acc;
+        }, 0);
+
+        // Count Morte por Intervenção victims separately
+        const morteIntervencaoIncidents = exportIncidents.filter(i => i.type === IncidentType.MORTE_INTERVENCAO);
+        const totalMorteIntervencaoVictims = morteIntervencaoIncidents.reduce((acc, curr) => {
+          if (curr.victim) {
+            const victims = curr.victim.split(',').filter(v => v.trim() !== '');
+            return acc + victims.length;
+          }
+          return acc;
+        }, 0);
+
+        doc.text(`Total de Registros: ${totalIncidents}`, 25, currentY + 10);
+        doc.text(`- Boletins de Ocorrência (B.O): ${boCount}`, 30, currentY + 18);
+        doc.text(`- Termos Circunstanciados (TCO): ${tcoCount}`, 30, currentY + 26);
+
+        doc.text(`Ocorrências com Flagrante: ${totalFlagrantes}`, 110, currentY + 10);
+        doc.text(`Total de Conduzidos: ${totalConduzidos}`, 110, currentY + 18);
+
+        let rightColY = 26;
+        if (totalCvliVictims > 0) {
+          doc.text(`Vítimas de CVLI: ${totalCvliVictims}`, 110, currentY + rightColY);
+          rightColY += 8;
+        }
+        if (totalMorteIntervencaoVictims > 0) {
+          doc.text(`Mortes por Intervenção: ${totalMorteIntervencaoVictims}`, 110, currentY + rightColY);
+          rightColY += 8;
+        }
+        if (totalWeapons > 0) {
+          doc.text(`Armas Apreendidas: ${totalWeapons}`, 110, currentY + rightColY);
         }
 
-        if (exportSummaries.length > 0) {
-          doc.setFontSize(12);
-          doc.setTextColor(0, 43, 92);
-          doc.setFont("helvetica", "bold");
-          doc.text("1. ESTATÍSTICA DE PRODUÇÃO DIÁRIA (P3)", 20, currentY);
-          currentY += 12;
-          exportSummaries.forEach(sum => {
-            if (currentY > 240) { doc.addPage(); currentY = 20; }
-            doc.setFontSize(10);
-            doc.setFont("helvetica", "bold");
-            doc.setTextColor(0, 0, 0);
-            const sumDateFormatted = sum.date.split('-').reverse().join('/');
-            doc.text(`Data: ${sumDateFormatted}`, 20, currentY);
-            currentY += 8; // Espaço após a data
+        currentY += 55;
 
-            if (sum.entries && sum.entries.length > 0) {
-              const entriesData = sum.entries.map(ent => [
-                `${ent.type}${ent.number ? ' #' + ent.number : ''}`,
-                ent.natures.map(n => natureLabels[n] || n).join(', '),
-                (ent.conduzidos.masculino || 0) + (ent.conduzidos.feminino || 0) + (ent.conduzidos.menor_infrator || 0)
-              ]);
+        // Detailed List
+        if (currentY > 230) { doc.addPage(); currentY = 20; }
+        doc.setFontSize(12); doc.setTextColor(0, 43, 92); doc.setFont("helvetica", "bold");
+        doc.text("DETALHAMENTO DE OCORRÊNCIAS", 20, currentY);
+        currentY += 12;
 
-              (doc as any).autoTable({
-                startY: currentY,
-                head: [['Documento', 'Naturezas Atreladas', 'Conduzidos']],
-                body: entriesData,
-                theme: 'grid',
-                headStyles: { fillColor: [0, 43, 92], textColor: [255, 255, 255], fontSize: 8 },
-                bodyStyles: { fontSize: 7 },
-                margin: { left: 20 },
-                tableWidth: 170
-              });
-              currentY = (doc as any).lastAutoTable.finalY + 15;
-            } else {
-              const countsData = (Object.entries(sum.counts) as [string, number][]).filter(([_, val]) => val > 0).map(([key, val]) => [natureLabels[key] || key, val]);
-              const condData = (Object.entries(sum.conduzidos) as [string, number][]).filter(([_, val]) => val > 0).map(([key, val]) => [conduzidosLabels[key] || key, val]);
+        exportIncidents.forEach((inc, idx) => {
+          if (currentY > 250) { doc.addPage(); currentY = 20; }
 
-              if (countsData.length > 0 || condData.length > 0) {
-                const startYForTables = currentY;
-                (doc as any).autoTable({
-                  startY: startYForTables,
-                  head: [['Natureza/Produtividade', 'Qtd']],
-                  body: countsData,
-                  theme: 'grid',
-                  headStyles: { fillColor: [0, 43, 92], textColor: [255, 255, 255], fontSize: 8 },
-                  bodyStyles: { fontSize: 7 },
-                  margin: { left: 25 },
-                  tableWidth: 80
-                });
-                const finalY1 = (doc as any).lastAutoTable.finalY;
+          doc.setFontSize(9); doc.setTextColor(0, 0, 0); doc.setFont("helvetica", "bold");
+          // Title Line
+          const title = `${idx + 1}. [${inc.incidentNumber}] - ${inc.type}${inc.isTco ? ' (TCO)' : ''}`;
+          doc.text(title, 20, currentY);
 
-                (doc as any).autoTable({
-                  startY: startYForTables,
-                  head: [['Perfil Conduzidos', 'Qtd']],
-                  body: condData,
-                  theme: 'grid',
-                  headStyles: { fillColor: [180, 0, 0], textColor: [255, 255, 255], fontSize: 8 },
-                  bodyStyles: { fontSize: 7 },
-                  margin: { left: 110 },
-                  tableWidth: 75
-                });
-                const finalY2 = (doc as any).lastAutoTable.finalY;
-                currentY = Math.max(finalY1, finalY2) + 15;
-              } else {
-                doc.setFontSize(8);
-                doc.text("Sem registros quantitativos.", 25, currentY);
-                currentY += 10;
-              }
-            }
-          });
-        }
+          currentY += 6;
+          doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(80, 80, 80);
 
-        if (exportIncidents.length > 0) {
-          if (currentY > 230) { doc.addPage(); currentY = 20; }
-          doc.setFontSize(12); doc.setTextColor(0, 43, 92); doc.setFont("helvetica", "bold");
-          doc.text("2. DETALHAMENTO DE OCORRÊNCIAS", 20, currentY);
-          currentY += 12;
-          exportIncidents.forEach((inc, idx) => {
-            if (currentY > 250) { doc.addPage(); currentY = 20; }
-            doc.setFontSize(9); doc.setTextColor(0, 0, 0); doc.setFont("helvetica", "bold");
-            doc.text(`${idx + 1}. [${inc.incidentNumber}] - ${inc.type}`, 20, currentY);
-            currentY += 6; doc.setFont("helvetica", "normal"); doc.setFontSize(8);
-            doc.text(`SIGMA: ${inc.sigma} | Local: ${inc.location.address}`, 25, currentY);
-            currentY += 5;
-            const desc = getCleanDescription(inc);
-            const splitDesc = doc.splitTextToSize(desc, 170);
-            doc.text(splitDesc, 25, currentY);
-            currentY += (splitDesc.length * 4) + 6;
-            doc.setDrawColor(230, 230, 230); doc.line(25, currentY - 3, 185, currentY - 3); currentY += 2;
-          });
-        }
-        doc.save(`Relatorio_Consolidado_P3_${new Date().getTime()}.pdf`);
-      } catch (err) { alert("Erro ao gerar PDF."); } finally { setIsGenerating(false); }
-    }, 500);
+          // Meta info line
+          const dateStr = new Date(inc.date).toLocaleString('pt-BR');
+          doc.text(`Data/Hora: ${dateStr} | SIGMA: ${inc.sigma || 'N/A'}`, 25, currentY);
+          currentY += 5;
+          doc.text(`Local: ${inc.location.address}`, 25, currentY);
+          currentY += 5;
+
+          // Description
+          doc.setFont("helvetica", "normal"); doc.setTextColor(0, 0, 0);
+          const desc = getCleanDescription(inc);
+          const splitDesc = doc.splitTextToSize(desc, 170);
+          doc.text(splitDesc, 25, currentY);
+
+          currentY += (splitDesc.length * 4) + 6;
+
+          // Divider
+          doc.setDrawColor(230, 230, 230);
+          doc.line(25, currentY - 3, 185, currentY - 3);
+          currentY += 2;
+        });
+
+        doc.save(`Relatorio_P3_${new Date().getTime()}.pdf`);
+      } catch (err) {
+        console.error(err);
+        alert("Erro ao gerar PDF: " + (err as any).message);
+      } finally {
+        setIsGenerating(false);
+      }
+    }, 100);
   };
 
   const generateWord = () => {
-    if (totalSelected === 0) return;
+    if (selectedIncidentIds.size === 0) return;
     setIsGenerating(true);
 
     try {
       const exportIncidents = incidents.filter(i => selectedIncidentIds.has(i.id));
-      const exportSummaries = dailySummaries.filter(s => selectedSummaryIds.has(s.id));
-      const periodText = reportStartDate && reportEndDate ? `${reportStartDate} até ${reportEndDate}` : "Integral";
 
-      // Dados do Dashboard
-      // Agregação de Totais
-      const incBO = exportIncidents.length;
-      const sumBO = exportSummaries.reduce((s, sum) => s + (sum.counts.bo || 0), 0);
-      const sumTCO = exportSummaries.reduce((s, sum) => s + (sum.counts.tco || 0), 0);
-      const totalFinalBO = incBO + sumBO;
-      const totalFinalTCO = sumTCO;
+      const totalIncidents = exportIncidents.length;
+      const totalConduzidos = exportIncidents.reduce((acc, curr) => acc + (curr.conductedCount || 0), 0);
+      const totalFlagrantes = exportIncidents.filter(i => i.hasFlagrante === 'Sim').length;
+      const totalWeapons = exportIncidents.filter(i => i.type === IncidentType.ARMA_FOGO).reduce((acc, curr) => acc + (curr.weaponCount || 0), 0);
+      const tcoCount = exportIncidents.filter(i => i.isTco).length;
+      const boCount = totalIncidents - tcoCount;
 
-      const incFlagrantes = exportIncidents.filter(i => i.hasFlagrante === 'Sim').length;
-      const sumFlagrantes = exportSummaries.reduce((s, sum) => s + (sum.counts.flagrantes || 0), 0);
-      const totalFinalFlagrantes = incFlagrantes + sumFlagrantes;
+      // Count CVLI victims (victims are stored as comma-separated names)
+      const cvliIncidents = exportIncidents.filter(i => i.type === IncidentType.CVLI);
+      const totalCvliVictims = cvliIncidents.reduce((acc, curr) => {
+        if (curr.victim) {
+          const victims = curr.victim.split(',').filter(v => v.trim() !== '');
+          return acc + victims.length;
+        }
+        return acc;
+      }, 0);
 
-      const incConducoes = exportIncidents.reduce((s, i) => s + (i.conductedCount || 0), 0);
-      const sumConducoes = exportSummaries.reduce((s, sum) => s +
-        (sum.conduzidos.masculino || 0) +
-        (sum.conduzidos.feminino || 0) +
-        (sum.conduzidos.menor_infrator || 0)
-        , 0);
-      const totalFinalConducoes = incConducoes + sumConducoes;
-
-      const totalWeapons = exportIncidents.reduce((s, i) => s + (i.weaponCount || 1), 0);
-      const totalIntact = exportIncidents.reduce((s, i) => s + (i.ammoIntactCount || 0), 0);
-      const totalDeflagrated = exportIncidents.reduce((s, i) => s + (i.ammoDeflagratedCount || 0), 0);
+      // Count Morte por Intervenção victims separately
+      const morteIntervencaoIncidents = exportIncidents.filter(i => i.type === IncidentType.MORTE_INTERVENCAO);
+      const totalMorteIntervencaoVictims = morteIntervencaoIncidents.reduce((acc, curr) => {
+        if (curr.victim) {
+          const victims = curr.victim.split(',').filter(v => v.trim() !== '');
+          return acc + victims.length;
+        }
+        return acc;
+      }, 0);
 
       let htmlContent = `
             <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
@@ -343,19 +220,13 @@ const Reports: React.FC<ReportsProps> = ({ incidents, dailySummaries }) => {
                 .inst { color: #002b5c; font-weight: bold; margin-bottom: 0; }
                 .title { font-size: 24px; font-weight: bold; margin-top: 20px; text-align: center; }
                 .summary-box { background-color: #f8fafc; border: 2px solid #002b5c; padding: 15px; margin-bottom: 30px; border-radius: 5px; }
-                .summary-grid { display: table; width: 100%; border-spacing: 10px; }
-                .summary-item { display: table-cell; border: 1px solid #e2e8f0; padding: 8px; font-size: 11px; }
-                .section-title { font-size: 16px; font-weight: bold; color: #002b5c; border-bottom: 1px solid #002b5c; margin-top: 30px; margin-bottom: 15px; }
                 .incident-item { border-bottom: 1px solid #eee; padding: 10px 0; margin-bottom: 10px; }
-                .inc-header { font-weight: bold; font-size: 12px; }
-                .inc-meta { font-size: 10px; color: #666; }
-                .inc-desc { font-size: 11px; font-style: italic; color: #333; margin-top: 5px; }
+                .inc-header { font-weight: bold; font-size: 12px; margin-bottom: 4px; }
+                .inc-meta { font-size: 10px; color: #666; margin-bottom: 4px; }
+                .inc-desc { font-size: 11px; color: #333; }
                 .footer { text-align: center; margin-top: 50px; font-size: 10px; color: #999; }
-                table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
-                th, td { border: 1px solid #ddd; padding: 6px; font-size: 10px; text-align: left; }
-                th { background-color: #002b5c; color: white; }
-                .th-red { background-color: #b8102e; }
-                .data-label { margin-bottom: 10px; font-size: 12px; }
+                table { width: 100%; border-collapse: collapse; }
+                td { vertical-align: top; padding: 5px; }
             </style>
             </head>
             <body>
@@ -365,75 +236,40 @@ const Reports: React.FC<ReportsProps> = ({ incidents, dailySummaries }) => {
                 </div>
                 
                 <h1 class="title">RELATÓRIO ESTATÍSTICO OPERACIONAL</h1>
-                <p style="text-align: center; font-size: 10px;">Período: ${periodText} | Gerado em: ${new Date().toLocaleString()}</p>
+                <p style="text-align: center; font-size: 10px;">Gerado em: ${new Date().toLocaleString('pt-BR')}</p>
 
                 <div class="summary-box">
-                    <h2 style="margin-top:0; font-size: 14px; text-transform: uppercase; color: #002b5c;">
-                        ${selectedType === 'TODOS' ? 'RESUMO GERAL DE ATIVIDADES' : 'DADOS CONSOLIDADOS: ' + selectedType}
-                    </h2>
-                    <table style="border:none;">
+                    <h2 style="margin-top:0; font-size: 14px; text-transform: uppercase; color: #002b5c;">DADOS CONSOLIDADOS</h2>
+                    <table style="border:none; width: 100%;">
                         <tr>
-                            <td style="border:none; width: 50%;">
-                                <strong>B.O / Ocorrências Gerais:</strong> ${totalFinalBO}<br/>
-                                <strong>Total de TCO:</strong> ${totalFinalTCO}<br/>
-                                <strong>Total de Conduções:</strong> ${totalFinalConducoes}
+                            <td style="width: 50%;">
+                                <strong>Total de Registros:</strong> ${totalIncidents}<br/>
+                                - Boletins de Ocorrência (B.O): ${boCount}<br/>
+                                - Termos Circunstanciados (TCO): ${tcoCount}
                             </td>
-                            <td style="border:none; width: 50%;">
-                                <strong>Flagrantes Delitos:</strong> ${totalFinalFlagrantes}<br/>
-                                ${selectedType === IncidentType.ARMA_FOGO ? `
-                                    <strong>TOTAL DE ARMAS:</strong> ${totalWeapons} un.<br/>
-                                    <strong>Munição Intacta/Deflagrada:</strong> ${totalIntact} / ${totalDeflagrated}
-                                ` : `<strong>Unidade Responsável:</strong> 43° BPM - P3`}
+                            <td style="width: 50%;">
+                                <strong>Flagrantes:</strong> ${totalFlagrantes}<br/>
+                                <strong>Conduzidos:</strong> ${totalConduzidos}<br/>
+                                ${totalCvliVictims > 0 ? `<strong>Vítimas de CVLI:</strong> ${totalCvliVictims}<br/>` : ''}
+                                ${totalMorteIntervencaoVictims > 0 ? `<strong>Mortes por Intervenção:</strong> ${totalMorteIntervencaoVictims}<br/>` : ''}
+                                ${totalWeapons > 0 ? `<strong>Armas Apreendidas:</strong> ${totalWeapons}` : ''}
                             </td>
                         </tr>
                     </table>
                 </div>
 
-                ${exportSummaries.length > 0 ? `
-                    <div class="section-title">1. ESTATÍSTICA DE PRODUÇÃO DIÁRIA (P3)</div>
-                    ${exportSummaries.map(sum => {
-        const counts = (Object.entries(sum.counts) as [string, number][]).filter(([_, val]) => val > 0);
-        const cond = (Object.entries(sum.conduzidos) as [string, number][]).filter(([_, val]) => val > 0);
-        return `
-                            <div class="data-label"><strong>Data: ${sum.date.split('-').reverse().join('/')}</strong></div>
-                            <div style="margin-bottom: 20px;">
-                                ${sum.entries && sum.entries.length > 0 ? `
-                                    <table>
-                                        <tr><th>Documento</th><th>Naturezas Atreladas</th><th>Conduzidos</th></tr>
-                                        ${sum.entries.map(ent => `
-                                            <tr>
-                                                <td>${ent.type}${ent.number ? ' #' + ent.number : ''}</td>
-                                                <td>${ent.natures.map(n => natureLabels[n] || n).join(', ')}</td>
-                                                <td>${(ent.conduzidos.masculino || 0) + (ent.conduzidos.feminino || 0) + (ent.conduzidos.menor_infrator || 0)}</td>
-                                            </tr>
-                                        `).join('')}
-                                    </table>
-                                ` : `
-                                    <table style="width: 48%; float: left; margin-right: 4%;">
-                                        <tr><th>Natureza</th><th>Qtd</th></tr>
-                                        ${counts.length > 0 ? counts.map(([k, v]) => `<tr><td>${natureLabels[k] || k}</td><td>${v}</td></tr>`).join('') : '<tr><td colspan="2">N/A</td></tr>'}
-                                    </table>
-                                    <table style="width: 48%;">
-                                        <tr><th class="th-red">Perfil Conduzido</th><th class="th-red">Qtd</th></tr>
-                                        ${cond.length > 0 ? cond.map(([k, v]) => `<tr><td>${conduzidosLabels[k] || k}</td><td>${v}</td></tr>`).join('') : '<tr><td colspan="2">N/A</td></tr>'}
-                                    </table>
-                                `}
-                            </div>
-                            <div style="clear:both; height: 10px;"></div>
-                        `;
-      }).join('')}
-                ` : ''}
-
-                ${exportIncidents.length > 0 ? `
-                    <div class="section-title">2. DETALHAMENTO DE OCORRÊNCIAS</div>
-                    ${exportIncidents.map((inc, idx) => `
-                        <div class="incident-item">
-                            <div class="inc-header">${idx + 1}. [${inc.incidentNumber}] - ${inc.type}</div>
-                            <div class="inc-meta">SIGMA: ${inc.sigma} | Local: ${inc.location.address} | Data: ${new Date(inc.date).toLocaleString()}</div>
-                            <div class="inc-desc">${getCleanDescription(inc)}</div>
+                <h2 style="font-size: 16px; color: #002b5c; border-bottom: 1px solid #ccc; padding-bottom: 5px;">DETALHAMENTO DE OCORRÊNCIAS</h2>
+                
+                ${exportIncidents.map((inc, idx) => `
+                    <div class="incident-item">
+                        <div class="inc-header">${idx + 1}. [${inc.incidentNumber}] - ${inc.type} ${inc.isTco ? '(TCO)' : ''}</div>
+                        <div class="inc-meta">
+                            Data: ${new Date(inc.date).toLocaleString('pt-BR')}<br/>
+                            SIGMA: ${inc.sigma || 'N/A'} | Local: ${inc.location.address}
                         </div>
-                    `).join('')}
-                ` : ''}
+                        <div class="inc-desc">${getCleanDescription(inc)}</div>
+                    </div>
+                `).join('')}
 
                 <div class="footer">
                     <br/><br/>
@@ -445,110 +281,74 @@ const Reports: React.FC<ReportsProps> = ({ incidents, dailySummaries }) => {
         `;
 
       const blob = new Blob(['\ufeff', htmlContent], { type: 'application/msword' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `Relatorio_P3_${new Date().getTime()}.doc`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    } catch (err) { alert("Erro ao gerar Word."); } finally { setIsGenerating(false); }
+      saveAs(blob, `Relatorio_P3_${new Date().getTime()}.doc`);
+    } catch (err) {
+      console.error(err);
+      alert("Erro ao gerar Word.");
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500 pb-20">
+    <div className="space-y-8 animate-in fade-in duration-500 pb-20 max-w-7xl mx-auto">
       <div className="bg-[#0f172a] p-8 rounded-[2rem] border border-slate-800 shadow-xl">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-black text-white uppercase tracking-tight flex items-center gap-3">
-            <i className="fa-solid fa-file-export text-[#ffd700]"></i>
-            Compilador de Relatórios Técnicos
-          </h2>
-          {selectedType !== 'TODOS' && (
-            <span className="px-4 py-1.5 bg-[#ffd700]/10 text-[#ffd700] rounded-full text-[10px] font-black uppercase border border-[#ffd700]/30 animate-pulse">
-              Relatório Analítico Ativado
-            </span>
-          )}
+        <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
+          <div className="space-y-1">
+            <h2 className="text-xl font-black text-white uppercase tracking-tight flex items-center gap-3">
+              <i className="fa-solid fa-file-export text-[#ffd700]"></i>
+              Exportação de Relatórios
+            </h2>
+            <p className="text-slate-400 text-xs">Exibindo registros conforme filtros aplicados na tela anterior.</p>
+          </div>
+
+          <div className="flex gap-2 w-full md:w-auto">
+            <button onClick={generatePDF} disabled={isGenerating || selectedIncidentIds.size === 0} className={`flex-1 md:flex-none px-6 py-3 rounded-xl font-black text-[10px] uppercase flex items-center justify-center gap-2 shadow-lg transition-all ${selectedIncidentIds.size > 0 ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-slate-800 text-slate-500 cursor-not-allowed'}`}>
+              {isGenerating ? <i className="fa-solid fa-spinner animate-spin"></i> : <i className="fa-solid fa-file-pdf"></i>} PDF
+            </button>
+            <button onClick={generateWord} disabled={isGenerating || selectedIncidentIds.size === 0} className={`flex-1 md:flex-none px-6 py-3 rounded-xl font-black text-[10px] uppercase flex items-center justify-center gap-2 shadow-lg transition-all ${selectedIncidentIds.size > 0 ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-slate-800 text-slate-500 cursor-not-allowed'}`}>
+              {isGenerating ? <i className="fa-solid fa-spinner animate-spin"></i> : <i className="fa-solid fa-file-word"></i>} Word
+            </button>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-5 gap-6 items-end">
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Data Inicial</label>
-            <input type="date" style={{ colorScheme: 'dark' }} className="w-full px-4 py-3 rounded-xl border-2 border-slate-800 bg-[#1e293b] text-white font-black text-sm outline-none focus:border-[#ffd700]" value={reportStartDate} onChange={(e) => setReportStartDate(e.target.value)} />
+        <div className="bg-[#020617] rounded-2xl border border-slate-800/50 p-4 flex justify-between items-center">
+          <div className="flex items-center gap-4">
+            <div className="bg-slate-800 px-3 py-1 rounded text-xs font-bold text-white">
+              Total: {incidents.length}
+            </div>
+            <div className="bg-blue-900/30 text-blue-400 px-3 py-1 rounded text-xs font-bold border border-blue-900/50">
+              Selecionados: {selectedIncidentIds.size}
+            </div>
           </div>
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Data Final</label>
-            <input type="date" style={{ colorScheme: 'dark' }} className="w-full px-4 py-3 rounded-xl border-2 border-slate-800 bg-[#1e293b] text-white font-black text-sm outline-none focus:border-[#ffd700]" value={reportEndDate} onChange={(e) => setReportEndDate(e.target.value)} />
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Natureza</label>
-            <select className="w-full px-4 py-3 rounded-xl border-2 border-slate-800 bg-[#1e293b] text-white font-black text-sm outline-none focus:border-[#ffd700]" value={selectedType} onChange={(e) => setSelectedType(e.target.value)}>
-              <option value="TODOS">TODAS AS OCORRÊNCIAS</option>
-              {Object.values(IncidentType).map(type => <option key={type} value={type}>{type}</option>)}
-            </select>
-          </div>
-          <div className="flex gap-2 lg:col-span-2">
-            <button onClick={generatePDF} disabled={isGenerating || totalSelected === 0} className={`flex-1 px-4 py-3.5 rounded-xl font-black text-[10px] uppercase flex items-center justify-center gap-2 shadow-lg transition-all ${totalSelected > 0 ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-slate-800 text-slate-500 cursor-not-allowed'}`}>
-              {isGenerating ? <i className="fa-solid fa-spinner animate-spin"></i> : <i className="fa-solid fa-file-pdf"></i>} PDF Consolidado
-            </button>
-            <button onClick={generateWord} disabled={isGenerating || totalSelected === 0} className={`flex-1 px-4 py-3.5 rounded-xl font-black text-[10px] uppercase flex items-center justify-center gap-2 shadow-lg transition-all ${totalSelected > 0 ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-slate-800 text-slate-500 cursor-not-allowed'}`}>
-              {isGenerating ? <i className="fa-solid fa-spinner animate-spin"></i> : <i className="fa-solid fa-file-word"></i>} Word Consolidado
-            </button>
+          <div className="flex gap-2">
+            <button onClick={selectAll} className="text-[10px] font-black text-white uppercase bg-white/5 px-3 py-1.5 rounded hover:bg-white/10 transition-colors">Todos</button>
+            <button onClick={clearSelection} className="text-[10px] font-black text-red-400 uppercase bg-red-500/5 px-3 py-1.5 rounded hover:bg-red-500/10 transition-colors">Nenhum</button>
           </div>
         </div>
       </div>
 
-      <div className="bg-[#0f172a] rounded-[2rem] border border-slate-800 overflow-hidden shadow-xl">
-        <div className="flex bg-white/5 border-b border-slate-800">
-          <button onClick={() => setActiveSubTab('incidents')} className={`flex-1 py-4 text-[11px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-3 border-b-4 ${activeSubTab === 'incidents' ? 'border-[#ffd700] text-white bg-[#ffd700]/5' : 'border-transparent text-slate-500 hover:text-slate-300'}`}>
-            <i className="fa-solid fa-list-check"></i> Ocorrências <span className="bg-slate-800 px-2 py-0.5 rounded text-[9px] font-black">{selectedIncidentIds.size}</span>
-          </button>
-          <button onClick={() => setActiveSubTab('summaries')} className={`flex-1 py-4 text-[11px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-3 border-b-4 ${activeSubTab === 'summaries' ? 'border-[#ffd700] text-white bg-[#ffd700]/5' : 'border-transparent text-slate-500 hover:text-slate-300'}`}>
-            <i className="fa-solid fa-chart-simple"></i> Resumos Diários <span className="bg-slate-800 px-2 py-0.5 rounded text-[9px] font-black">{selectedSummaryIds.size}</span>
-          </button>
-        </div>
-
-        <div className="p-6 border-b border-slate-800 flex justify-between items-center bg-black/20">
-          <h3 className="text-xs font-black text-white uppercase tracking-widest">Registros Disponíveis para Seleção</h3>
-          <div className="flex gap-2">
-            <button onClick={selectAllVisible} className="text-[10px] font-black text-white uppercase bg-white/5 px-4 py-2 rounded-lg border border-white/10 hover:bg-white/10 transition-colors">Marcar Todos</button>
-            <button onClick={clearVisibleSelection} className="text-[10px] font-black text-red-500 uppercase bg-red-500/5 px-4 py-2 rounded-lg border border-red-500/10 hover:bg-red-500/10 transition-colors">Desmarcar</button>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {incidents.length > 0 ? incidents.map(inc => (
+          <div key={inc.id} onClick={() => toggleIncidentSelection(inc.id)} className={`p-5 rounded-2xl border transition-all cursor-pointer flex items-center gap-4 group ${selectedIncidentIds.has(inc.id) ? 'bg-[#ffd700]/10 border-[#ffd700] shadow-lg shadow-[#ffd700]/5' : 'bg-slate-800/20 border-slate-800 hover:border-slate-600'}`}>
+            <div className={`w-5 h-5 rounded flex items-center justify-center border-2 transition-all flex-shrink-0 ${selectedIncidentIds.has(inc.id) ? 'bg-[#ffd700] border-[#ffd700]' : 'border-slate-600 group-hover:border-slate-500'}`}>
+              {selectedIncidentIds.has(inc.id) && <i className="fa-solid fa-check text-[#002b5c] text-[10px]"></i>}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex justify-between items-start mb-1">
+                <span className="text-[10px] font-black text-[#ffd700] uppercase tracking-tighter">{inc.incidentNumber}</span>
+                <span className="text-[9px] font-black text-slate-500">{new Date(inc.date).toLocaleDateString('pt-BR')}</span>
+              </div>
+              <h4 className="text-xs font-black text-white uppercase truncate" title={inc.type}>{inc.type}</h4>
+              <p className="text-[10px] text-slate-400 truncate mt-1">{inc.location.address}</p>
+            </div>
           </div>
-        </div>
-
-        <div className="p-8">
-          {activeSubTab === 'incidents' ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
-              {filteredIncidents.length > 0 ? filteredIncidents.map(inc => (
-                <div key={inc.id} onClick={() => toggleIncidentSelection(inc.id)} className={`p-5 rounded-2xl border transition-all cursor-pointer flex items-center gap-4 ${selectedIncidentIds.has(inc.id) ? 'bg-[#ffd700]/10 border-[#ffd700] shadow-lg shadow-[#ffd700]/5' : 'bg-slate-800/20 border-slate-800 hover:border-slate-700'}`}>
-                  <div className={`w-6 h-6 rounded flex items-center justify-center border-2 transition-all ${selectedIncidentIds.has(inc.id) ? 'bg-[#ffd700] border-[#ffd700]' : 'border-slate-700'}`}>
-                    {selectedIncidentIds.has(inc.id) && <i className="fa-solid fa-check text-[#002b5c] text-[10px]"></i>}
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex justify-between items-start mb-1">
-                      <span className="text-[10px] font-black text-[#ffd700] uppercase tracking-tighter">{inc.incidentNumber}</span>
-                      <span className="text-[9px] font-black text-slate-500">{new Date(inc.date).toLocaleDateString('pt-BR')}</span>
-                    </div>
-                    <h4 className="text-xs font-black text-white uppercase truncate">{inc.type}</h4>
-                  </div>
-                </div>
-              )) : <div className="col-span-full py-10 text-center text-slate-600 font-black uppercase text-[10px]">Nenhuma ocorrência encontrada</div>}
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
-              {filteredSummaries.length > 0 ? filteredSummaries.map(sum => (
-                <div key={sum.id} onClick={() => toggleSummarySelection(sum.id)} className={`p-5 rounded-2xl border transition-all cursor-pointer flex items-center gap-4 ${selectedSummaryIds.has(sum.id) ? 'bg-blue-600/10 border-blue-500 shadow-lg shadow-blue-500/5' : 'bg-slate-800/20 border-slate-800 hover:border-slate-700'}`}>
-                  <div className={`w-6 h-6 rounded flex items-center justify-center border-2 transition-all ${selectedSummaryIds.has(sum.id) ? 'bg-blue-600 border-blue-500' : 'border-slate-700'}`}>
-                    {selectedSummaryIds.has(sum.id) && <i className="fa-solid fa-check text-white text-[10px]"></i>}
-                  </div>
-                  <div className="flex-1">
-                    <span className="text-[10px] font-black text-blue-400 uppercase tracking-tighter block mb-1">RESUMO DIÁRIO P3</span>
-                    <h4 className="text-sm font-black text-white uppercase">{sum.date.split('-').reverse().join('/')}</h4>
-                  </div>
-                </div>
-              )) : <div className="col-span-full py-10 text-center text-slate-600 font-black uppercase text-[10px]">Nenhum resumo encontrado</div>}
-            </div>
-          )}
-        </div>
+        )) : (
+          <div className="col-span-full py-20 text-center">
+            <i className="fa-solid fa-filter text-slate-700 text-4xl mb-4"></i>
+            <p className="text-slate-500 font-bold uppercase text-sm">Nenhum registro encontrado para exportação.</p>
+          </div>
+        )}
       </div>
     </div>
   );

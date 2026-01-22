@@ -40,7 +40,7 @@ const Header: React.FC<HeaderProps> = ({
     }
   };
 
-  const showSearchBar = activeTab !== 'new' && activeTab !== 'analysis' && activeTab !== 'reports';
+  const showSearchBar = activeTab !== 'new' && activeTab !== 'analysis';
 
   return (
     <header className="mb-6 lg:mb-10 flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 lg:gap-6 bg-[#0f172a] p-5 lg:p-6 rounded-3xl shadow-xl border border-slate-800">
@@ -65,23 +65,29 @@ const Header: React.FC<HeaderProps> = ({
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
+            {searchTerm && (
+              <i
+                className="fa-solid fa-xmark absolute right-4 top-3.5 text-slate-500 cursor-pointer hover:text-white transition-colors"
+                onClick={() => setSearchTerm('')}
+              ></i>
+            )}
           </div>
           <div className="flex flex-1 items-center gap-2 bg-[#1e293b] border-2 border-slate-800 rounded-xl px-2 py-1 shadow-sm">
             <div className="relative flex-1 group">
               <i className="fa-solid fa-calendar-day absolute left-3 top-2.5 text-slate-500 text-[10px]"></i>
-              <input 
-                type="date" 
+              <input
+                type="date"
                 className="w-full pl-8 pr-1 py-2 bg-transparent outline-none text-[10px] lg:text-xs font-black text-white appearance-none cursor-pointer"
                 style={{ colorScheme: 'dark' }}
                 value={startDate}
-                onChange={(e) => { setStartDate(e.target.value); if(!endDate) setEndDate(e.target.value); }}
+                onChange={(e) => { setStartDate(e.target.value); if (!endDate) setEndDate(e.target.value); }}
               />
             </div>
             <div className="h-4 w-[1px] bg-slate-700"></div>
             <div className="relative flex-1 group">
               <i className="fa-solid fa-calendar-check absolute left-3 top-2.5 text-slate-500 text-[10px]"></i>
-              <input 
-                type="date" 
+              <input
+                type="date"
                 className="w-full pl-8 pr-1 py-2 bg-transparent outline-none text-[10px] lg:text-xs font-black text-white appearance-none cursor-pointer"
                 style={{ colorScheme: 'dark' }}
                 value={endDate}
@@ -90,7 +96,7 @@ const Header: React.FC<HeaderProps> = ({
             </div>
           </div>
           {(isSearching || dashboardStatusFilter) && (
-            <button 
+            <button
               onClick={onClearFilters}
               title="Limpar Filtros"
               className="w-11 h-11 bg-red-900/20 text-red-500 rounded-xl shadow-sm flex items-center justify-center hover:bg-red-900/40 transition-colors border-2 border-red-900/50 flex-shrink-0"

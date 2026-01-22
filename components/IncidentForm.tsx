@@ -21,6 +21,7 @@ const IncidentForm: React.FC<IncidentFormProps> = ({ onSave, onCancel, initialDa
 
   const [formData, setFormData] = useState<Partial<Incident>>({
     type: IncidentType.CVLI,
+    isTco: false,
     status: IncidentStatus.PENDENTE,
     date: getLocalDatetime(),
     location: { address: '' },
@@ -81,6 +82,9 @@ const IncidentForm: React.FC<IncidentFormProps> = ({ onSave, onCancel, initialDa
   const isRouboPatrimonial = formData.type === IncidentType.ROUBO_RESIDENCIA || formData.type === IncidentType.ROUBO_COMERCIAL;
   const isOther = formData.type === IncidentType.OUTRO;
 
+  // Identifica se é um tipo "Legado" que possui campos detalhados específicos
+  const hasSpecificDetails = isCVLIStyle || isCadaverOrSuicide || isMandado || isDrogas || isWeaponSeizure || isSimulacro || isVeiculoRecuperado || isFurtoVeiculo || isRouboVeiculo || isRouboPatrimonial || isRouboPessoa || isOther;
+
   const isPersonIncident = isCVLIStyle || isCadaverOrSuicide || isMandado || isRouboPessoa;
 
   useEffect(() => {
@@ -111,10 +115,89 @@ const IncidentForm: React.FC<IncidentFormProps> = ({ onSave, onCancel, initialDa
     }
   }, [formData.conductedCount]);
 
+  // Searchable Incident Type State
+  const [typeSearch, setTypeSearch] = useState('');
+  const [isTypeDropdownOpen, setIsTypeDropdownOpen] = useState(false);
+  const typeInputRef = useRef<HTMLInputElement>(null);
+  const typeContainerRef = useRef<HTMLDivElement>(null);
+
+  // Sync search text with selected type initially or when it changes
+  useEffect(() => {
+    if (formData.type) {
+      setTypeSearch(typeof formData.type === 'string' ? formData.type : '');
+    }
+  }, [formData.type]);
+
+  // Click outside to close
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      // Check if click is outside the entire container (input + dropdown + icons)
+      if (typeContainerRef.current && !typeContainerRef.current.contains(event.target as Node)) {
+        setIsTypeDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   const handleProfileChange = (index: number, value: string) => {
     const nextProfiles = [...(formData.conductedProfiles || [])];
     nextProfiles[index] = value;
     setFormData({ ...formData, conductedProfiles: nextProfiles });
+  };
+
+  // State for multiple victims
+  const [victimCount, setVictimCount] = useState<number>(1);
+  const [victimsList, setVictimsList] = useState<string[]>(['']);
+  const [victimsInitialized, setVictimsInitialized] = useState(false);
+
+  // Initialize victims from existing data (only once)
+  useEffect(() => {
+    if (victimsInitialized) return;
+
+    const victimSource = initialData?.victim || formData.victim;
+    if (victimSource) {
+      const parts = victimSource.split(',').map(s => s.trim()).filter(s => s !== '');
+      if (parts.length > 0) {
+        setVictimCount(parts.length);
+        setVictimsList(parts);
+        setVictimsInitialized(true);
+      }
+    }
+  }, [initialData, formData.victim, victimsInitialized]);
+
+  // Sync victimsList with victimCount when count changes
+  const handleVictimCountChange = (newCount: number) => {
+    const safeCount = Math.max(1, newCount);
+    setVictimCount(safeCount);
+
+    setVictimsList(prev => {
+      const next = [...prev];
+      if (next.length < safeCount) {
+        // Add empty entries
+        while (next.length < safeCount) next.push('');
+      } else if (next.length > safeCount) {
+        // Trim to new count
+        next.length = safeCount;
+      }
+      return next;
+    });
+  };
+
+  // Update formData.victim when victimsList changes
+  useEffect(() => {
+    const joined = victimsList.filter(v => v.trim() !== '').join(', ');
+    if (joined !== formData.victim) {
+      setFormData(prev => ({ ...prev, victim: joined }));
+    }
+  }, [victimsList]);
+
+  const handleVictimChange = (index: number, value: string) => {
+    setVictimsList(prev => {
+      const next = [...prev];
+      next[index] = value;
+      return next;
+    });
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -198,19 +281,57 @@ const IncidentForm: React.FC<IncidentFormProps> = ({ onSave, onCancel, initialDa
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="space-y-1.5">
               <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Tipo de Incidente</label>
-              <div className="relative">
-                <i className="fa-solid fa-list-check absolute left-4 top-3.5 text-slate-500 z-10"></i>
-                <select
-                  required
-                  className="w-full pl-12 pr-10 py-3.5 rounded-2xl border-2 border-slate-800 bg-[#1e293b] focus:border-[#ffd700] outline-none transition-all text-sm text-white font-black appearance-none cursor-pointer"
-                  value={formData.type}
-                  onChange={(e) => setFormData({ ...formData, type: e.target.value as IncidentType })}
-                >
-                  {Object.values(IncidentType).map((type) => (
-                    <option key={type} value={type} className="bg-[#1e293b]">{type}</option>
-                  ))}
-                </select>
-                <i className="fa-solid fa-chevron-down absolute right-4 top-4.5 text-slate-300 pointer-events-none"></i>
+              <div className="relative" ref={typeContainerRef}>
+                <i className="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 z-10"></i>
+                <input
+                  type="text"
+                  className="w-full pl-12 pr-10 py-3.5 rounded-2xl border-2 border-slate-800 bg-[#1e293b] focus:border-[#ffd700] outline-none transition-all text-sm text-white font-black placeholder-slate-600 cursor-pointer"
+                  placeholder="Pesquisar natureza..."
+                  value={typeSearch}
+                  onClick={() => setIsTypeDropdownOpen(!isTypeDropdownOpen)}
+                  onChange={(e) => {
+                    setTypeSearch(e.target.value);
+                    setIsTypeDropdownOpen(true);
+                  }}
+                  ref={typeInputRef}
+                />
+                {typeSearch && (
+                  <i
+                    className="fa-solid fa-xmark absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 cursor-pointer hover:text-[#ffd700] transition-colors z-20"
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      setTypeSearch('');
+                      setFormData({ ...formData, type: '' });
+                      setIsTypeDropdownOpen(true);
+                    }}
+                  ></i>
+                )}
+
+                {isTypeDropdownOpen && (
+                  <div className="absolute top-full left-0 right-0 mt-2 max-h-60 overflow-y-auto bg-[#1e293b] border-2 border-slate-700 rounded-2xl shadow-2xl z-50 scroller-thin animate-in fade-in zoom-in-95 duration-200">
+                    {Object.values(IncidentType)
+                      .filter(t => t.toLowerCase().includes(typeSearch.toLowerCase()))
+                      .map((type) => (
+                        <div
+                          key={type}
+                          className={`px-6 py-3 text-xs sm:text-sm font-bold cursor-pointer transition-colors border-b border-slate-800 last:border-0 ${formData.type === type ? 'bg-[#ffd700] text-[#002b5c]' : 'text-slate-300 hover:bg-slate-700 hover:text-white'}`}
+                          onMouseDown={(e) => {
+                            e.preventDefault(); // Impede blur do input
+                            setFormData({ ...formData, type: type });
+                            setTypeSearch(type);
+                            setIsTypeDropdownOpen(false);
+                          }}
+                        >
+                          {type}
+                        </div>
+                      ))}
+                    {Object.values(IncidentType).filter(t => t.toLowerCase().includes(typeSearch.toLowerCase())).length === 0 && (
+                      <div className="px-6 py-4 text-xs text-slate-500 text-center font-bold uppercase">
+                        Nenhuma natureza encontrada
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -255,6 +376,19 @@ const IncidentForm: React.FC<IncidentFormProps> = ({ onSave, onCancel, initialDa
                   onChange={(e) => setFormData({ ...formData, sigma: e.target.value })}
                 />
               </div>
+            </div>
+
+            <div className="md:col-span-3 flex items-center gap-3 p-4 bg-blue-500/10 rounded-2xl border border-blue-500/20">
+              <input
+                type="checkbox"
+                id="isTco"
+                className="w-5 h-5 rounded border-slate-600 text-blue-500 focus:ring-blue-500 bg-slate-800 cursor-pointer"
+                checked={formData.isTco || false}
+                onChange={(e) => setFormData({ ...formData, isTco: e.target.checked })}
+              />
+              <label htmlFor="isTco" className="text-xs font-black text-blue-400 uppercase tracking-wide cursor-pointer select-none">
+                MARCAR OCORRÊNCIA COMO TCO (Termo Circunstanciado)
+              </label>
             </div>
           </div>
         </div>
@@ -308,232 +442,280 @@ const IncidentForm: React.FC<IncidentFormProps> = ({ onSave, onCancel, initialDa
           </div>
         </div>
 
-        {isPersonIncident ? (
-          <div className="space-y-6 bg-slate-800/20 p-4 sm:p-6 rounded-3xl border border-slate-800">
-            <h3 className="text-xs font-black text-white uppercase tracking-widest mb-4">04. Detalhes {isCVLIStyle ? `da ${isCVLI ? 'CVLI' : 'Intervenção'}` : 'de Pessoas'}</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {isCVLIStyle && (
-                <div className="md:col-span-2 space-y-1.5 mb-2">
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">
-                    {isMorteIntervencao ? 'HISTÓRICO DA OCORRÊNCIA' : 'Detalhe da Ocorrência'}
-                  </label>
-                  <input
-                    value={formData.cvliType || ''}
-                    required={isCVLI}
-                    className="w-full px-4 sm:px-6 py-3 sm:py-3.5 rounded-2xl border-2 border-slate-800 bg-[#1e293b] focus:border-[#ffd700] outline-none text-sm text-white font-black placeholder-slate-700"
-                    placeholder={isCVLI ? "Ex: HOMICÍDIO POR ARMA DE FOGO..." : "Descreva brevemente o histórico..."}
-                    onChange={(e) => setFormData({ ...formData, cvliType: e.target.value.toUpperCase() })}
-                  />
-                </div>
-              )}
-              <div className="space-y-1.5 mb-2">
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">
-                  {isMandado ? "Nome do Conduzido(a)" : "Nome da Vítima"}
-                </label>
-                <input
-                  value={formData.victim || ''}
-                  className="w-full px-4 sm:px-6 py-3 sm:py-3.5 rounded-2xl border-2 border-slate-800 bg-[#1e293b] focus:border-[#ffd700] outline-none text-sm text-white font-black placeholder-slate-700"
-                  placeholder={isMandado ? "Nome do Conduzido(a)" : "Nome da Vítima"}
-                  onChange={(e) => setFormData({ ...formData, victim: e.target.value })}
-                />
-              </div>
-              <div className="space-y-1.5 mb-2">
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">VTR / Guarnição</label>
-                <input
-                  value={formData.garrison || ''}
-                  className="w-full px-4 sm:px-6 py-3 sm:py-3.5 rounded-2xl border-2 border-slate-800 bg-[#1e293b] focus:border-[#ffd700] outline-none text-sm text-white font-black placeholder-slate-700"
-                  placeholder="Ex: VTR 43-100"
-                  onChange={(e) => setFormData({ ...formData, garrison: e.target.value })}
-                />
-              </div>
-            </div>
-          </div>
-        ) : isDrogas ? (
-          <div className="space-y-6 bg-slate-800/20 p-4 sm:p-6 rounded-3xl border border-slate-800">
-            <h3 className="text-[10px] font-black text-white uppercase tracking-widest mb-4">04. Detalhes de Entorpecentes</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-1.5 mb-2">
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Drogas (QTD/Tipo)</label>
-                <input
-                  required
-                  value={formData.drugDetails || ''}
-                  className="w-full px-4 sm:px-6 py-3 sm:py-3.5 rounded-2xl border-2 border-slate-800 bg-[#1e293b] focus:border-[#ffd700] outline-none text-sm text-white font-black placeholder-slate-700"
-                  placeholder="QTD e Tipo de Drogas"
-                  onChange={(e) => setFormData({ ...formData, drugDetails: e.target.value })}
-                />
-              </div>
-              <div className="space-y-1.5 mb-2">
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">VTR / Guarnição</label>
-                <input
-                  value={formData.garrison || ''}
-                  className="w-full px-4 sm:px-6 py-3 sm:py-3.5 rounded-2xl border-2 border-slate-800 bg-[#1e293b] focus:border-[#ffd700] outline-none text-sm text-white font-black placeholder-slate-700"
-                  placeholder="VTR / Guarnição"
-                  onChange={(e) => setFormData({ ...formData, garrison: e.target.value })}
-                />
-              </div>
-            </div>
-          </div>
-        ) : isWeaponSeizure || isSimulacro ? (
-          <div className="space-y-6 bg-slate-800/20 p-4 sm:p-6 rounded-3xl border border-slate-800">
-            <h3 className="text-[10px] font-black text-white uppercase tracking-widest mb-4">
-              04. Detalhes da Apreensão {isWeaponSeizure ? 'de Arma' : 'de Simulacro'}
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {isWeaponSeizure && (
-                <>
+
+
+        {
+          hasSpecificDetails && (
+            isPersonIncident ? (
+              <div className="space-y-6 bg-slate-800/20 p-4 sm:p-6 rounded-3xl border border-slate-800">
+                <h3 className="text-xs font-black text-white uppercase tracking-widest mb-4">04. Detalhes {isCVLIStyle ? `da ${isCVLI ? 'CVLI' : 'Intervenção'}` : 'de Pessoas'}</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {isCVLIStyle && (
+                    <div className="md:col-span-2 space-y-1.5 mb-2">
+                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">
+                        {isMorteIntervencao ? 'HISTÓRICO DA OCORRÊNCIA' : 'Detalhe da Ocorrência'}
+                      </label>
+                      <input
+                        value={formData.cvliType || ''}
+                        required={isCVLI}
+                        className="w-full px-4 sm:px-6 py-3 sm:py-3.5 rounded-2xl border-2 border-slate-800 bg-[#1e293b] focus:border-[#ffd700] outline-none text-sm text-white font-black placeholder-slate-700"
+                        placeholder={isCVLI ? "Ex: HOMICÍDIO POR ARMA DE FOGO..." : "Descreva brevemente o histórico..."}
+                        onChange={(e) => setFormData({ ...formData, cvliType: e.target.value.toUpperCase() })}
+                      />
+                    </div>
+                  )}
                   <div className="space-y-1.5 mb-2">
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Tipo de Arma</label>
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">
+                      {isMandado ? "Nome do Conduzido(a)" : "Vítimas"}
+                    </label>
+
+                    {isMandado ? (
+                      <input
+                        value={formData.victim || ''}
+                        className="w-full px-4 sm:px-6 py-3 sm:py-3.5 rounded-2xl border-2 border-slate-800 bg-[#1e293b] focus:border-[#ffd700] outline-none text-sm text-white font-black placeholder-slate-700"
+                        placeholder="Nome do Conduzido(a)"
+                        onChange={(e) => setFormData({ ...formData, victim: e.target.value })}
+                      />
+                    ) : (
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-3 bg-slate-800/50 p-2 rounded-xl border border-slate-700">
+                          <label className="text-[9px] font-black text-[#ffd700] uppercase ml-1 whitespace-nowrap">Qtd Vítimas:</label>
+                          <input
+                            type="number"
+                            min="1"
+                            value={victimCount}
+                            onChange={(e) => handleVictimCountChange(parseInt(e.target.value) || 1)}
+                            className="w-20 px-3 py-1.5 rounded-lg border border-slate-600 bg-[#0f172a] text-white text-xs font-black focus:border-[#ffd700] outline-none"
+                          />
+                        </div>
+                        <div className="grid gap-3">
+                          {victimsList.map((v, idx) => (
+                            <input
+                              key={idx}
+                              value={v}
+                              onChange={(e) => handleVictimChange(idx, e.target.value)}
+                              className="w-full px-4 sm:px-6 py-3 sm:py-3.5 rounded-2xl border-2 border-slate-800 bg-[#1e293b] focus:border-[#ffd700] outline-none text-sm text-white font-black placeholder-slate-700 animate-in fade-in slide-in-from-top-2"
+                              placeholder={`Nome da Vítima ${idx + 1}`}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  <div className="space-y-1.5 mb-2">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">VTR / Guarnição</label>
                     <input
-                      required
-                      value={formData.weaponType || ''}
+                      value={formData.garrison || ''}
                       className="w-full px-4 sm:px-6 py-3 sm:py-3.5 rounded-2xl border-2 border-slate-800 bg-[#1e293b] focus:border-[#ffd700] outline-none text-sm text-white font-black placeholder-slate-700"
-                      placeholder="Ex: Revólver .38"
-                      onChange={(e) => setFormData({ ...formData, weaponType: e.target.value })}
+                      placeholder="Ex: VTR 43-100"
+                      onChange={(e) => setFormData({ ...formData, garrison: e.target.value })}
                     />
                   </div>
-                  <div className="space-y-1.5 mb-2">
-                    <label className="text-[10px] font-black text-[#ffd700] uppercase tracking-widest ml-1">Quantidade de Armas</label>
-                    <input
-                      type="number"
-                      min="1"
-                      required
-                      className="w-full px-4 sm:px-6 py-3 sm:py-3.5 rounded-2xl border-2 border-slate-800 bg-[#1e293b] focus:border-[#ffd700] outline-none text-sm text-white font-black"
-                      value={formData.weaponCount || 1}
-                      onChange={(e) => setFormData({ ...formData, weaponCount: parseInt(e.target.value) || 1 })}
-                    />
-                  </div>
-                </>
-              )}
-              <div className="space-y-1.5 mb-2">
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">VTR / Guarnição</label>
-                <input
-                  value={formData.garrison || ''}
-                  className="w-full px-4 sm:px-6 py-3 sm:py-3.5 rounded-2xl border-2 border-slate-800 bg-[#1e293b] focus:border-[#ffd700] outline-none text-sm text-white font-black placeholder-slate-700"
-                  placeholder="Ex: VTR 43-100"
-                  onChange={(e) => setFormData({ ...formData, garrison: e.target.value })}
-                />
-              </div>
-              {isWeaponSeizure && (
-                <>
-                  <div className="space-y-1.5 mb-2">
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Qtd Munição Intacta</label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={formData.ammoIntactCount || 0}
-                      className="w-full px-4 py-3 rounded-xl border-2 border-slate-800 bg-[#1e293b] text-white font-black text-sm outline-none"
-                      onChange={(e) => setFormData({ ...formData, ammoIntactCount: parseInt(e.target.value) || 0 })}
-                    />
-                  </div>
-                  <div className="space-y-1.5 mb-2">
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Qtd Munição Deflagrada</label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={formData.ammoDeflagratedCount || 0}
-                      className="w-full px-4 py-3 rounded-xl border-2 border-slate-800 bg-[#1e293b] text-white font-black text-sm outline-none"
-                      onChange={(e) => setFormData({ ...formData, ammoDeflagratedCount: parseInt(e.target.value) || 0 })}
-                    />
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-        ) : (isVeiculoRecuperado || isFurtoVeiculo || isRouboVeiculo) ? (
-          <div className="space-y-6 bg-slate-800/20 p-4 sm:p-6 rounded-3xl border border-slate-800">
-            <h3 className="text-[10px] font-black text-white uppercase tracking-widest mb-4">
-              04. Detalhes do Veículo
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="md:col-span-2 space-y-1.5 mb-2">
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Informações do Veículo</label>
-                <textarea
-                  required
-                  rows={3}
-                  className="w-full px-4 sm:px-6 py-3 sm:py-4 rounded-2xl border-2 border-slate-800 bg-[#1e293b] focus:border-[#ffd700] outline-none text-sm text-white font-bold placeholder-slate-700"
-                  placeholder="Descreva marca, modelo, placa, cor e estado do veículo..."
-                  value={formData.vehicleDetails || ''}
-                  onChange={(e) => setFormData({ ...formData, vehicleDetails: e.target.value })}
-                />
-              </div>
-
-              {(isFurtoVeiculo || isRouboVeiculo) && (
-                <div className="md:col-span-2 space-y-1.5 mb-2 animate-in slide-in-from-top-2">
-                  <label className="text-[10px] font-black text-[#ffd700] uppercase tracking-widest ml-1">Nome da Vítima</label>
-                  <input
-                    value={formData.victim || ''}
-                    className="w-full px-4 sm:px-6 py-3 sm:py-3.5 rounded-2xl border-2 border-slate-800 bg-[#1e293b] focus:border-[#ffd700] outline-none text-sm text-white font-black placeholder-slate-700"
-                    placeholder="Nome completo da vítima, se houver"
-                    onChange={(e) => setFormData({ ...formData, victim: e.target.value })}
-                  />
                 </div>
-              )}
-
-              <div className="md:col-span-2 space-y-1.5 mb-2">
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">VTR / Guarnição</label>
-                <input
-                  value={formData.garrison || ''}
-                  className="w-full px-4 sm:px-6 py-3 sm:py-3.5 rounded-2xl border-2 border-slate-800 bg-[#1e293b] focus:border-[#ffd700] outline-none text-sm text-white font-black placeholder-slate-700"
-                  placeholder="Ex: VTR 43-100"
-                  onChange={(e) => setFormData({ ...formData, garrison: e.target.value })}
-                />
               </div>
-            </div>
-          </div>
-        ) : isRouboPatrimonial ? (
-          <div className="space-y-6 bg-slate-800/20 p-4 sm:p-6 rounded-3xl border border-slate-800">
-            <h3 className="text-[10px] font-black text-white uppercase tracking-widest mb-4">
-              04. Bens Subtraídos e Detalhes do Roubo
-            </h3>
-            <div className="grid grid-cols-1 gap-6">
-              <div className="space-y-1.5 mb-2">
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Relação de Bens e Dinâmica</label>
+            ) : isDrogas ? (
+              <div className="space-y-6 bg-slate-800/20 p-4 sm:p-6 rounded-3xl border border-slate-800">
+                <h3 className="text-[10px] font-black text-white uppercase tracking-widest mb-4">04. Detalhes de Entorpecentes</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-1.5 mb-2">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Drogas (QTD/Tipo)</label>
+                    <input
+                      required
+                      value={formData.drugDetails || ''}
+                      className="w-full px-4 sm:px-6 py-3 sm:py-3.5 rounded-2xl border-2 border-slate-800 bg-[#1e293b] focus:border-[#ffd700] outline-none text-sm text-white font-black placeholder-slate-700"
+                      placeholder="QTD e Tipo de Drogas"
+                      onChange={(e) => setFormData({ ...formData, drugDetails: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-1.5 mb-2">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">VTR / Guarnição</label>
+                    <input
+                      value={formData.garrison || ''}
+                      className="w-full px-4 sm:px-6 py-3 sm:py-3.5 rounded-2xl border-2 border-slate-800 bg-[#1e293b] focus:border-[#ffd700] outline-none text-sm text-white font-black placeholder-slate-700"
+                      placeholder="VTR / Guarnição"
+                      onChange={(e) => setFormData({ ...formData, garrison: e.target.value })}
+                    />
+                  </div>
+                </div>
+              </div>
+            ) : isWeaponSeizure || isSimulacro ? (
+              <div className="space-y-6 bg-slate-800/20 p-4 sm:p-6 rounded-3xl border border-slate-800">
+                <h3 className="text-[10px] font-black text-white uppercase tracking-widest mb-4">
+                  04. Detalhes da Apreensão {isWeaponSeizure ? 'de Arma' : 'de Simulacro'}
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {isWeaponSeizure && (
+                    <>
+                      <div className="space-y-1.5 mb-2">
+                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Tipo de Arma</label>
+                        <input
+                          required
+                          value={formData.weaponType || ''}
+                          className="w-full px-4 sm:px-6 py-3 sm:py-3.5 rounded-2xl border-2 border-slate-800 bg-[#1e293b] focus:border-[#ffd700] outline-none text-sm text-white font-black placeholder-slate-700"
+                          placeholder="Ex: Revólver .38"
+                          onChange={(e) => setFormData({ ...formData, weaponType: e.target.value })}
+                        />
+                      </div>
+                      <div className="space-y-1.5 mb-2">
+                        <label className="text-[10px] font-black text-[#ffd700] uppercase tracking-widest ml-1">Quantidade de Armas</label>
+                        <input
+                          type="number"
+                          min="1"
+                          required
+                          className="w-full px-4 sm:px-6 py-3 sm:py-3.5 rounded-2xl border-2 border-slate-800 bg-[#1e293b] focus:border-[#ffd700] outline-none text-sm text-white font-black"
+                          value={formData.weaponCount || 1}
+                          onChange={(e) => setFormData({ ...formData, weaponCount: parseInt(e.target.value) || 1 })}
+                        />
+                      </div>
+                    </>
+                  )}
+                  <div className="space-y-1.5 mb-2">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">VTR / Guarnição</label>
+                    <input
+                      value={formData.garrison || ''}
+                      className="w-full px-4 sm:px-6 py-3 sm:py-3.5 rounded-2xl border-2 border-slate-800 bg-[#1e293b] focus:border-[#ffd700] outline-none text-sm text-white font-black placeholder-slate-700"
+                      placeholder="Ex: VTR 43-100"
+                      onChange={(e) => setFormData({ ...formData, garrison: e.target.value })}
+                    />
+                  </div>
+                  {isWeaponSeizure && (
+                    <>
+                      <div className="space-y-1.5 mb-2">
+                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Qtd Munição Intacta</label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={formData.ammoIntactCount || 0}
+                          className="w-full px-4 py-3 rounded-xl border-2 border-slate-800 bg-[#1e293b] text-white font-black text-sm outline-none"
+                          onChange={(e) => setFormData({ ...formData, ammoIntactCount: parseInt(e.target.value) || 0 })}
+                        />
+                      </div>
+                      <div className="space-y-1.5 mb-2">
+                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Qtd Munição Deflagrada</label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={formData.ammoDeflagratedCount || 0}
+                          className="w-full px-4 py-3 rounded-xl border-2 border-slate-800 bg-[#1e293b] text-white font-black text-sm outline-none"
+                          onChange={(e) => setFormData({ ...formData, ammoDeflagratedCount: parseInt(e.target.value) || 0 })}
+                        />
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            ) : (isVeiculoRecuperado || isFurtoVeiculo || isRouboVeiculo) ? (
+              <div className="space-y-6 bg-slate-800/20 p-4 sm:p-6 rounded-3xl border border-slate-800">
+                <h3 className="text-[10px] font-black text-white uppercase tracking-widest mb-4">
+                  04. Detalhes do Veículo
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="md:col-span-2 space-y-1.5 mb-2">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Informações do Veículo</label>
+                    <textarea
+                      required
+                      rows={3}
+                      className="w-full px-4 sm:px-6 py-3 sm:py-4 rounded-2xl border-2 border-slate-800 bg-[#1e293b] focus:border-[#ffd700] outline-none text-sm text-white font-bold placeholder-slate-700"
+                      placeholder="Descreva marca, modelo, placa, cor e estado do veículo..."
+                      value={formData.vehicleDetails || ''}
+                      onChange={(e) => setFormData({ ...formData, vehicleDetails: e.target.value })}
+                    />
+                  </div>
+
+                  {(isFurtoVeiculo || isRouboVeiculo) && (
+                    <div className="md:col-span-2 space-y-3 mb-2 animate-in slide-in-from-top-2">
+                      <div className="flex items-center gap-3 bg-slate-800/50 p-2 rounded-xl border border-slate-700">
+                        <label className="text-[9px] font-black text-[#ffd700] uppercase ml-1 whitespace-nowrap">Qtd Vítimas ({isFurtoVeiculo ? 'Furto' : 'Roubo'}):</label>
+                        <input
+                          type="number"
+                          min="1"
+                          value={victimCount}
+                          onChange={(e) => handleVictimCountChange(parseInt(e.target.value) || 1)}
+                          className="w-20 px-3 py-1.5 rounded-lg border border-slate-600 bg-[#0f172a] text-white text-xs font-black focus:border-[#ffd700] outline-none"
+                        />
+                      </div>
+                      <div className="grid gap-3">
+                        {victimsList.map((v, idx) => (
+                          <div key={idx} className="space-y-1.5">
+                            <label className="text-[10px] font-black text-[#ffd700] uppercase tracking-widest ml-1">Nome da Vítima {idx + 1}</label>
+                            <input
+                              value={v}
+                              onChange={(e) => handleVictimChange(idx, e.target.value)}
+                              className="w-full px-4 sm:px-6 py-3 sm:py-3.5 rounded-2xl border-2 border-slate-800 bg-[#1e293b] focus:border-[#ffd700] outline-none text-sm text-white font-black placeholder-slate-700 animate-in fade-in slide-in-from-top-2"
+                              placeholder={`Nome completo da vítima ${idx + 1}`}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="md:col-span-2 space-y-1.5 mb-2">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">VTR / Guarnição</label>
+                    <input
+                      value={formData.garrison || ''}
+                      className="w-full px-4 sm:px-6 py-3 sm:py-3.5 rounded-2xl border-2 border-slate-800 bg-[#1e293b] focus:border-[#ffd700] outline-none text-sm text-white font-black placeholder-slate-700"
+                      placeholder="Ex: VTR 43-100"
+                      onChange={(e) => setFormData({ ...formData, garrison: e.target.value })}
+                    />
+                  </div>
+                </div>
+              </div>
+            ) : isRouboPatrimonial ? (
+              <div className="space-y-6 bg-slate-800/20 p-4 sm:p-6 rounded-3xl border border-slate-800">
+                <h3 className="text-[10px] font-black text-white uppercase tracking-widest mb-4">
+                  04. Bens Subtraídos e Detalhes do Roubo
+                </h3>
+                <div className="grid grid-cols-1 gap-6">
+                  <div className="space-y-1.5 mb-2">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Relação de Bens e Dinâmica</label>
+                    <textarea
+                      required
+                      rows={4}
+                      className="w-full px-4 sm:px-6 py-3 sm:py-4 rounded-2xl border-2 border-slate-800 bg-[#1e293b] focus:border-[#ffd700] outline-none text-sm text-white font-bold placeholder-slate-700"
+                      placeholder="Descreva o que foi levado, número de suspeitos..."
+                      value={formData.stolenDetails || ''}
+                      onChange={(e) => setFormData({ ...formData, stolenDetails: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-1.5 mb-2">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">VTR / Guarnição</label>
+                    <input
+                      value={formData.garrison || ''}
+                      className="w-full px-4 sm:px-6 py-3 sm:py-3.5 rounded-2xl border-2 border-slate-800 bg-[#1e293b] focus:border-[#ffd700] outline-none text-sm text-white font-black placeholder-slate-700"
+                      placeholder="Ex: VTR 43-100"
+                      onChange={(e) => setFormData({ ...formData, garrison: e.target.value })}
+                    />
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                <h3 className="text-[10px] font-black text-white uppercase tracking-widest">
+                  {isOther ? '04. Detalhes da Ocorrência' : '04. Relato Policial'}
+                </h3>
                 <textarea
                   required
                   rows={4}
                   className="w-full px-4 sm:px-6 py-3 sm:py-4 rounded-2xl border-2 border-slate-800 bg-[#1e293b] focus:border-[#ffd700] outline-none text-sm text-white font-bold placeholder-slate-700"
-                  placeholder="Descreva o que foi levado, número de suspeitos..."
-                  value={formData.stolenDetails || ''}
-                  onChange={(e) => setFormData({ ...formData, stolenDetails: e.target.value })}
+                  placeholder={isOther ? "Descreva detalhadamente a ocorrência..." : "Descreva o fato..."}
+                  value={formData.description || ''}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 />
+                {!isRouboPessoa && !isDrogas && !isMandado && !isCVLIStyle && !isCadaverOrSuicide && (
+                  <div className="space-y-1.5 mb-2">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">VTR / Guarnição</label>
+                    <input
+                      value={formData.garrison || ''}
+                      className="w-full px-4 sm:px-6 py-3 sm:py-3.5 rounded-2xl border-2 border-slate-800 bg-[#1e293b] focus:border-[#ffd700] outline-none text-sm text-white font-black placeholder-slate-700"
+                      placeholder="Ex: VTR 43-100"
+                      onChange={(e) => setFormData({ ...formData, garrison: e.target.value })}
+                    />
+                  </div>
+                )}
               </div>
-              <div className="space-y-1.5 mb-2">
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">VTR / Guarnição</label>
-                <input
-                  value={formData.garrison || ''}
-                  className="w-full px-4 sm:px-6 py-3 sm:py-3.5 rounded-2xl border-2 border-slate-800 bg-[#1e293b] focus:border-[#ffd700] outline-none text-sm text-white font-black placeholder-slate-700"
-                  placeholder="Ex: VTR 43-100"
-                  onChange={(e) => setFormData({ ...formData, garrison: e.target.value })}
-                />
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-6">
-            <h3 className="text-[10px] font-black text-white uppercase tracking-widest">
-              {isOther ? '04. Detalhes da Ocorrência' : '04. Relato Policial'}
-            </h3>
-            <textarea
-              required
-              rows={4}
-              className="w-full px-4 sm:px-6 py-3 sm:py-4 rounded-2xl border-2 border-slate-800 bg-[#1e293b] focus:border-[#ffd700] outline-none text-sm text-white font-bold placeholder-slate-700"
-              placeholder={isOther ? "Descreva detalhadamente a ocorrência..." : "Descreva o fato..."}
-              value={formData.description || ''}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-            />
-            {!isRouboPessoa && !isDrogas && !isMandado && !isCVLIStyle && !isCadaverOrSuicide && (
-              <div className="space-y-1.5 mb-2">
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">VTR / Guarnição</label>
-                <input
-                  value={formData.garrison || ''}
-                  className="w-full px-4 sm:px-6 py-3 sm:py-3.5 rounded-2xl border-2 border-slate-800 bg-[#1e293b] focus:border-[#ffd700] outline-none text-sm text-white font-black placeholder-slate-700"
-                  placeholder="Ex: VTR 43-100"
-                  onChange={(e) => setFormData({ ...formData, garrison: e.target.value })}
-                />
-              </div>
-            )}
-          </div>
-        )}
+            ))
+        }
 
         <div className="space-y-6 bg-red-900/5 p-4 sm:p-6 rounded-3xl border border-red-900/20">
           <div className="flex items-center gap-3">
@@ -594,8 +776,8 @@ const IncidentForm: React.FC<IncidentFormProps> = ({ onSave, onCancel, initialDa
           <button type="button" onClick={handleCancelClick} className="px-4 sm:px-6 py-3 bg-slate-800 text-slate-400 font-black rounded-xl hover:text-white transition-all text-xs uppercase">Cancelar</button>
           <button type="submit" className="flex-1 px-4 sm:px-6 py-3 bg-[#ffd700] text-[#002b5c] font-black rounded-xl hover:bg-[#ffea00] transition-all text-xs uppercase shadow-lg shadow-[#ffd700]/10">Salvar Registro</button>
         </div>
-      </form>
-    </div>
+      </form >
+    </div >
   );
 };
 

@@ -10,12 +10,11 @@ import IncidentForm from './components/IncidentForm.tsx';
 import IncidentTable from './components/IncidentTable.tsx';
 import AIAnalysis from './components/AIAnalysis.tsx';
 import IncidentDetail from './components/IncidentDetail.tsx';
-import DailySummaryView from './components/DailySummary.tsx';
 import Reports from './components/Reports.tsx';
 import ConfirmModal from './components/ConfirmModal.tsx';
 import Auth from './components/Auth.tsx';
 import AdminPanel from './components/AdminPanel.tsx';
-import { Incident, IncidentStatus, DailySummary, UserProfile, IncidentType } from './types.ts';
+import { Incident, IncidentStatus, UserProfile, IncidentType } from './types.ts';
 import { MOCK_INCIDENTS } from './constants.ts';
 
 const App: React.FC = () => {
@@ -44,7 +43,6 @@ const App: React.FC = () => {
   }, []);
 
   const [incidents, setIncidents] = useState<Incident[]>([]);
-  const [dailySummaries, setDailySummaries] = useState<DailySummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
 
@@ -52,7 +50,7 @@ const App: React.FC = () => {
     if (session) {
       fetchUserProfile();
       // Se já temos dados, fazemos um fetch silencioso (sem travar a UI)
-      const shouldShowLoading = incidents.length === 0 && dailySummaries.length === 0;
+      const shouldShowLoading = incidents.length === 0;
       fetchInitialData(shouldShowLoading);
     } else {
       setIsLoading(false);
@@ -125,28 +123,11 @@ const App: React.FC = () => {
         photo: row.photo,
         vehicleDetails: row.vehicle_details,
         stolenDetails: row.stolen_details,
-        customType: row.custom_type
-      }));
-
-      const { data: summariesData, error: summariesError } = await supabase
-        .from('daily_summaries')
-        .select('*')
-        .order('date', { ascending: false });
-
-      if (summariesError) throw summariesError;
-
-      const mappedSummaries: DailySummary[] = (summariesData || []).map(row => ({
-        id: row.id,
-        date: row.date,
-        counts: row.counts,
-        conduzidos: row.conduzidos,
-        entries: row.entries,
-        reportedBy: row.reported_by,
-        createdAt: row.created_at
+        customType: row.custom_type,
+        isTco: row.is_tco
       }));
 
       setIncidents(mappedIncidents);
-      setDailySummaries(mappedSummaries);
     } catch (err) {
       console.error('Error fetching data:', err);
     } finally {
@@ -187,7 +168,7 @@ const App: React.FC = () => {
   const [editingIncident, setEditingIncident] = useState<Incident | null>(null);
 
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [itemToDelete, setItemToDelete] = useState<{ id: string, type: 'incident' | 'summary' } | null>(null);
+  const [itemToDelete, setItemToDelete] = useState<{ id: string, type: 'incident' } | null>(null);
 
 
   useEffect(() => {
@@ -225,7 +206,8 @@ const App: React.FC = () => {
         vehicle_details: incidentData.vehicleDetails,
         stolen_details: incidentData.stolenDetails,
         custom_type: incidentData.customType,
-        user_id: session?.user.id
+        user_id: session?.user.id,
+        is_tco: incidentData.isTco
       };
 
       if (isEditing) {
@@ -255,40 +237,7 @@ const App: React.FC = () => {
     }
   };
 
-  const handleSaveDailySummary = async (summary: DailySummary) => {
-    try {
-      const payload = {
-        date: summary.date,
-        counts: summary.counts,
-        conduzidos: summary.conduzidos,
-        entries: summary.entries,
-        reported_by: summary.reportedBy || 'P/3 - 43° BPM',
-        user_id: session?.user.id
-      };
 
-      const exists = !!summary.id && typeof summary.id === 'string' && summary.id.length > 20; // Check if it's a real UUID
-
-      if (exists) {
-        const { error } = await supabase
-          .from('daily_summaries')
-          .update(payload)
-          .eq('id', summary.id);
-
-        if (error) throw error;
-      } else {
-        const { error } = await supabase
-          .from('daily_summaries')
-          .insert([payload]);
-
-        if (error) throw error;
-      }
-
-      await fetchInitialData();
-    } catch (err) {
-      console.error('Error saving summary:', err);
-      alert('Erro ao salvar resumo no banco de dados.');
-    }
-  };
 
   const handleDashboardFilterChange = (status: IncidentStatus | null) => {
     setDashboardStatusFilter(prev => prev === status ? null : status);
@@ -307,23 +256,12 @@ const App: React.FC = () => {
     setShowDeleteModal(true);
   };
 
-  const handleDeleteSummaryRequest = (id: string) => {
-    setItemToDelete({ id, type: 'summary' });
-    setShowDeleteModal(true);
-  };
-
   const confirmDelete = async () => {
     if (itemToDelete) {
       try {
         if (itemToDelete.type === 'incident') {
           const { error } = await supabase
             .from('incidents')
-            .delete()
-            .eq('id', itemToDelete.id);
-          if (error) throw error;
-        } else {
-          const { error } = await supabase
-            .from('daily_summaries')
             .delete()
             .eq('id', itemToDelete.id);
           if (error) throw error;
@@ -373,6 +311,12 @@ const App: React.FC = () => {
       const searchDate = parseSearchDate(term);
 
       result = result.filter(i => {
+        // Special Dashboard Filters
+        if (searchTerm === 'TCO') return i.isTco;
+        if (searchTerm === 'BO') return !i.isTco;
+        if (searchTerm === 'CONDUZIDOS') return (i.conductedCount || 0) > 0;
+        if (searchTerm === 'FLAGRANTE') return i.hasFlagrante === 'Sim';
+
         // Strict match for Dashboard cards (Exact Enum Match)
         if (i.type === searchTerm) return true;
 
@@ -415,42 +359,8 @@ const App: React.FC = () => {
       });
     }
     return result;
+
   }, [incidents, searchTerm, startDate, endDate, dashboardStatusFilter]);
-
-  const filteredSummaries = useMemo(() => {
-    let result = [...dailySummaries];
-    const term = searchTerm.trim().toLowerCase();
-
-    if (term) {
-      const searchDate = parseSearchDate(term);
-      result = result.filter(sum => {
-        if (searchDate) {
-          const [y, m, d] = sum.date.split('-').map(Number);
-          const dayMatch = d === searchDate.day;
-          const monthMatch = m === searchDate.month;
-          const yearMatch = searchDate.year ? y === searchDate.year : true;
-          if (dayMatch && monthMatch && yearMatch) return true;
-        }
-        const naturesWithRecords = Object.keys(sum.counts).filter(k => sum.counts[k] > 0);
-        const matchContent = naturesWithRecords.some(n => normalizeText(n).includes(term));
-        if (matchContent) return true;
-        const formattedDate = sum.date.split('-').reverse().join('/');
-        if (formattedDate.includes(term)) return true;
-        return false;
-      });
-    }
-
-    if (startDate || endDate) {
-      result = result.filter(sum => {
-        const sumDateStr = sum.date;
-        if (startDate && endDate) return sumDateStr >= startDate && sumDateStr <= endDate;
-        if (startDate) return sumDateStr >= startDate;
-        if (endDate) return sumDateStr <= endDate;
-        return true;
-      });
-    }
-    return result;
-  }, [dailySummaries, searchTerm, startDate, endDate]);
 
   const isSearching = searchTerm.trim() !== '' || startDate !== '' || endDate !== '';
 
@@ -591,8 +501,6 @@ const App: React.FC = () => {
             <Dashboard
               incidents={incidents}
               filteredIncidents={filteredIncidents}
-              summaries={dailySummaries}
-              filteredSummaries={filteredSummaries}
               isSearching={isSearching}
               activeFilter={dashboardStatusFilter}
               onFilterChange={handleDashboardFilterChange}
@@ -607,14 +515,10 @@ const App: React.FC = () => {
               onDelete={handleDeleteRequest}
             />
           )}
-          {activeTab === 'daily' && (
-            <DailySummaryView
-              summaries={filteredSummaries}
-              onSave={handleSaveDailySummary}
-              onDelete={handleDeleteSummaryRequest}
-            />
-          )}
+
+
           {activeTab === 'analysis' && <AIAnalysis incidents={filteredIncidents} />}
+          {activeTab === 'reports' && <Reports incidents={filteredIncidents} />}
           {activeTab === 'admin' && userProfile?.is_admin && <AdminPanel />}
           {activeTab === 'new' && (
             <div className="max-w-4xl mx-auto">
