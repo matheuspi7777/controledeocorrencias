@@ -15,7 +15,7 @@ import Reports from './components/Reports.tsx';
 import ConfirmModal from './components/ConfirmModal.tsx';
 import Auth from './components/Auth.tsx';
 import AdminPanel from './components/AdminPanel.tsx';
-import { Incident, IncidentStatus, DailySummary, UserProfile } from './types.ts';
+import { Incident, IncidentStatus, DailySummary, UserProfile, IncidentType } from './types.ts';
 import { MOCK_INCIDENTS } from './constants.ts';
 
 const App: React.FC = () => {
@@ -368,11 +368,14 @@ const App: React.FC = () => {
       result = result.filter(i => i.status === dashboardStatusFilter);
     }
 
-    const term = searchTerm.trim().toLowerCase();
+    const term = normalizeText(searchTerm);
     if (term) {
       const searchDate = parseSearchDate(term);
 
       result = result.filter(i => {
+        // Strict match for Dashboard cards (Exact Enum Match)
+        if (i.type === searchTerm) return true;
+
         if (searchDate) {
           const d = new Date(i.date);
           const incDay = d.getUTCDate();
