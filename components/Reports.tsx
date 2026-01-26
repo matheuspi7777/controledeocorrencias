@@ -83,29 +83,44 @@ const Reports: React.FC<ReportsProps> = ({ incidents }) => {
         const totalIncidents = exportIncidents.length;
         const totalConduzidos = exportIncidents.reduce((acc, curr) => acc + (curr.conductedCount || 0), 0);
         const totalFlagrantes = exportIncidents.filter(i => i.hasFlagrante === 'Sim').length;
-        const totalWeapons = exportIncidents.filter(i => i.type === IncidentType.ARMA_FOGO).reduce((acc, curr) => acc + (curr.weaponCount || 0), 0);
+
+        const totalWeapons = exportIncidents.filter(i => i.type === IncidentType.ARMA_FOGO).reduce((acc, curr) => acc + (curr.weaponCount || 1), 0);
+        const totalSimulacra = exportIncidents.filter(i => i.type === IncidentType.SIMULACRO).reduce((acc, curr) => acc + (curr.simulacrumCount || 1), 0);
+        const totalVehiclesRec = exportIncidents.filter(i => i.type === IncidentType.VEICULO_RECUPERADO).reduce((acc, curr) => acc + (curr.vehicleCount || 1), 0);
+        const totalVehiclesStolen = exportIncidents.filter(i => i.type === IncidentType.FURTO_VEICULO).reduce((acc, curr) => acc + (curr.stolenVehicleCount || 1), 0);
+        const totalVehiclesRobbed = exportIncidents.filter(i => i.type === IncidentType.ROUBO_VEICULO).reduce((acc, curr) => acc + (curr.robbedVehicleCount || 1), 0);
+
         const tcoCount = exportIncidents.filter(i => i.isTco).length;
         const boCount = totalIncidents - tcoCount;
 
-        // Count CVLI victims (victims are stored as comma-separated names)
-        const cvliIncidents = exportIncidents.filter(i => i.type === IncidentType.CVLI);
-        const totalCvliVictims = cvliIncidents.reduce((acc, curr) => {
-          if (curr.victim) {
-            const victims = curr.victim.split(',').filter(v => v.trim() !== '');
-            return acc + victims.length;
-          }
-          return acc;
+        const totalCvliVictims = exportIncidents.filter(i => i.type === IncidentType.CVLI || (i.type as string) === 'CVLI').reduce((acc, curr) => {
+          return acc + (curr.victimCount || (curr.victim ? curr.victim.split(',').length : 1));
         }, 0);
 
-        // Count Morte por Intervenção victims separately
-        const morteIntervencaoIncidents = exportIncidents.filter(i => i.type === IncidentType.MORTE_INTERVENCAO);
-        const totalMorteIntervencaoVictims = morteIntervencaoIncidents.reduce((acc, curr) => {
-          if (curr.victim) {
-            const victims = curr.victim.split(',').filter(v => v.trim() !== '');
-            return acc + victims.length;
-          }
-          return acc;
+        const totalMorteIntervencaoVictims = exportIncidents.filter(i => i.type === IncidentType.MORTE_INTERVENCAO).reduce((acc, curr) => {
+          return acc + (curr.victimCount || (curr.victim ? curr.victim.split(',').length : 1));
         }, 0);
+
+        // Calculate needed height for right column
+        let rightRowsCount = 2; // Flagrantes + Conduzidos
+        if (totalCvliVictims > 0) rightRowsCount++;
+        if (totalMorteIntervencaoVictims > 0) rightRowsCount++;
+        if (totalWeapons > 0) rightRowsCount++;
+        if (totalSimulacra > 0) rightRowsCount++;
+        if (totalVehiclesRec > 0) rightRowsCount++;
+        if (totalVehiclesStolen > 0) rightRowsCount++;
+        if (totalVehiclesRobbed > 0) rightRowsCount++;
+
+        const boxHeight = Math.max(45, (rightRowsCount * 8) + 12);
+
+        // Draw the background box FIRST
+        doc.setFillColor(248, 250, 252);
+        doc.setDrawColor(226, 232, 240);
+        doc.rect(20, currentY, 170, boxHeight, 'FD');
+
+        doc.setFontSize(9);
+        doc.setTextColor(30, 41, 59);
+        doc.setFont("helvetica", "normal");
 
         doc.text(`Total de Registros: ${totalIncidents}`, 25, currentY + 10);
         doc.text(`- Boletins de Ocorrência (B.O): ${boCount}`, 30, currentY + 18);
@@ -125,9 +140,25 @@ const Reports: React.FC<ReportsProps> = ({ incidents }) => {
         }
         if (totalWeapons > 0) {
           doc.text(`Armas Apreendidas: ${totalWeapons}`, 110, currentY + rightColY);
+          rightColY += 8;
+        }
+        if (totalSimulacra > 0) {
+          doc.text(`Simulacros Apreendidos: ${totalSimulacra}`, 110, currentY + rightColY);
+          rightColY += 8;
+        }
+        if (totalVehiclesRec > 0) {
+          doc.text(`Veículos Recuperados: ${totalVehiclesRec}`, 110, currentY + rightColY);
+          rightColY += 8;
+        }
+        if (totalVehiclesStolen > 0) {
+          doc.text(`Veículos Furtados: ${totalVehiclesStolen}`, 110, currentY + rightColY);
+          rightColY += 8;
+        }
+        if (totalVehiclesRobbed > 0) {
+          doc.text(`Veículos Roubados: ${totalVehiclesRobbed}`, 110, currentY + rightColY);
         }
 
-        currentY += 55;
+        currentY += boxHeight + 10;
 
         // Detailed List
         if (currentY > 230) { doc.addPage(); currentY = 20; }
@@ -136,32 +167,49 @@ const Reports: React.FC<ReportsProps> = ({ incidents }) => {
         currentY += 12;
 
         exportIncidents.forEach((inc, idx) => {
-          if (currentY > 250) { doc.addPage(); currentY = 20; }
+          if (currentY > 240) { doc.addPage(); currentY = 20; }
 
           doc.setFontSize(9); doc.setTextColor(0, 0, 0); doc.setFont("helvetica", "bold");
-          // Title Line
           const title = `${idx + 1}. [${inc.incidentNumber}] - ${inc.type}${inc.isTco ? ' (TCO)' : ''}`;
           doc.text(title, 20, currentY);
 
           currentY += 6;
           doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(80, 80, 80);
-
-          // Meta info line
           const dateStr = new Date(inc.date).toLocaleString('pt-BR');
-          doc.text(`Data/Hora: ${dateStr} | SIGMA: ${inc.sigma || 'N/A'}`, 25, currentY);
-          currentY += 5;
-          doc.text(`Local: ${inc.location.address}`, 25, currentY);
+          doc.text(`Data/Hora: ${dateStr} | SIGMA: ${inc.sigma || 'N/A'} | Local: ${inc.location.address}`, 25, currentY);
           currentY += 5;
 
-          // Description
+          doc.setFont("helvetica", "bold"); doc.setTextColor(0, 43, 92);
+          let detailLines: string[] = [];
+
+          if (inc.garrison) detailLines.push(`GUARNICAO: ${inc.garrison}`);
+          if (inc.conductedCount) detailLines.push(`CONDUZIDOS: ${inc.conductedCount} (${(inc.conductedProfiles || []).join(', ')})`);
+          if (inc.hasFlagrante !== 'Não Informado') detailLines.push(`FLAGRANTE: ${inc.hasFlagrante}`);
+
+          // Type specific details
+          if (inc.weaponType) detailLines.push(`ARMA: ${inc.weaponType} | QTD: ${inc.weaponCount || 1} | MUNIÇÃO: ${inc.ammoIntactCount}i/${inc.ammoDeflagratedCount}d`);
+          if (inc.simulacrumCount && inc.type === IncidentType.SIMULACRO) detailLines.push(`SIMULACROS: ${inc.simulacrumCount}`);
+          if (inc.victim) detailLines.push(`VITIMA(S): ${inc.victim} (Total: ${inc.victimCount || inc.victim.split(',').length})`);
+          if (inc.vehicleDetails) detailLines.push(`VEICULO: ${inc.vehicleDetails} | QTD: ${inc.vehicleCount || inc.stolenVehicleCount || inc.robbedVehicleCount || 1}`);
+          if (inc.stolenDetails) detailLines.push(`BENS/DINAMICA: ${inc.stolenDetails}`);
+          if (inc.cvliType) detailLines.push(`DETALHE NATUREZA: ${inc.cvliType}`);
+          if (inc.drugDetails) detailLines.push(`DROGAS: ${inc.drugDetails}`);
+
+          detailLines.forEach(line => {
+            if (currentY > 270) { doc.addPage(); currentY = 20; }
+            doc.text(line, 25, currentY);
+            currentY += 4;
+          });
+
+          // Description (Relato Técnico)
           doc.setFont("helvetica", "normal"); doc.setTextColor(0, 0, 0);
-          const desc = getCleanDescription(inc);
+          const desc = `RELATO: ${getCleanDescription(inc)}`;
           const splitDesc = doc.splitTextToSize(desc, 170);
-          doc.text(splitDesc, 25, currentY);
 
+          if (currentY + (splitDesc.length * 4) > 280) { doc.addPage(); currentY = 20; }
+          doc.text(splitDesc, 25, currentY);
           currentY += (splitDesc.length * 4) + 6;
 
-          // Divider
           doc.setDrawColor(230, 230, 230);
           doc.line(25, currentY - 3, 185, currentY - 3);
           currentY += 2;
@@ -187,28 +235,22 @@ const Reports: React.FC<ReportsProps> = ({ incidents }) => {
       const totalIncidents = exportIncidents.length;
       const totalConduzidos = exportIncidents.reduce((acc, curr) => acc + (curr.conductedCount || 0), 0);
       const totalFlagrantes = exportIncidents.filter(i => i.hasFlagrante === 'Sim').length;
-      const totalWeapons = exportIncidents.filter(i => i.type === IncidentType.ARMA_FOGO).reduce((acc, curr) => acc + (curr.weaponCount || 0), 0);
+
+      const totalWeapons = exportIncidents.filter(i => i.type === IncidentType.ARMA_FOGO).reduce((acc, curr) => acc + (curr.weaponCount || 1), 0);
+      const totalSimulacra = exportIncidents.filter(i => i.type === IncidentType.SIMULACRO).reduce((acc, curr) => acc + (curr.simulacrumCount || 1), 0);
+      const totalVehiclesRec = exportIncidents.filter(i => i.type === IncidentType.VEICULO_RECUPERADO).reduce((acc, curr) => acc + (curr.vehicleCount || 1), 0);
+      const totalVehiclesStolen = exportIncidents.filter(i => i.type === IncidentType.FURTO_VEICULO).reduce((acc, curr) => acc + (curr.stolenVehicleCount || 1), 0);
+      const totalVehiclesRobbed = exportIncidents.filter(i => i.type === IncidentType.ROUBO_VEICULO).reduce((acc, curr) => acc + (curr.robbedVehicleCount || 1), 0);
+
       const tcoCount = exportIncidents.filter(i => i.isTco).length;
       const boCount = totalIncidents - tcoCount;
 
-      // Count CVLI victims (victims are stored as comma-separated names)
-      const cvliIncidents = exportIncidents.filter(i => i.type === IncidentType.CVLI);
-      const totalCvliVictims = cvliIncidents.reduce((acc, curr) => {
-        if (curr.victim) {
-          const victims = curr.victim.split(',').filter(v => v.trim() !== '');
-          return acc + victims.length;
-        }
-        return acc;
+      const totalCvliVictims = exportIncidents.filter(i => i.type === IncidentType.CVLI || (i.type as string) === 'CVLI').reduce((acc, curr) => {
+        return acc + (curr.victimCount || (curr.victim ? curr.victim.split(',').length : 1));
       }, 0);
 
-      // Count Morte por Intervenção victims separately
-      const morteIntervencaoIncidents = exportIncidents.filter(i => i.type === IncidentType.MORTE_INTERVENCAO);
-      const totalMorteIntervencaoVictims = morteIntervencaoIncidents.reduce((acc, curr) => {
-        if (curr.victim) {
-          const victims = curr.victim.split(',').filter(v => v.trim() !== '');
-          return acc + victims.length;
-        }
-        return acc;
+      const totalMorteIntervencaoVictims = exportIncidents.filter(i => i.type === IncidentType.MORTE_INTERVENCAO).reduce((acc, curr) => {
+        return acc + (curr.victimCount || (curr.victim ? curr.victim.split(',').length : 1));
       }, 0);
 
       let htmlContent = `
@@ -252,7 +294,11 @@ const Reports: React.FC<ReportsProps> = ({ incidents }) => {
                                 <strong>Conduzidos:</strong> ${totalConduzidos}<br/>
                                 ${totalCvliVictims > 0 ? `<strong>Vítimas de CVLI:</strong> ${totalCvliVictims}<br/>` : ''}
                                 ${totalMorteIntervencaoVictims > 0 ? `<strong>Mortes por Intervenção:</strong> ${totalMorteIntervencaoVictims}<br/>` : ''}
-                                ${totalWeapons > 0 ? `<strong>Armas Apreendidas:</strong> ${totalWeapons}` : ''}
+                                ${totalWeapons > 0 ? `<strong>Armas Apreendidas:</strong> ${totalWeapons}<br/>` : ''}
+                                ${totalSimulacra > 0 ? `<strong>Simulacros Apreendidos:</strong> ${totalSimulacra}<br/>` : ''}
+                                ${totalVehiclesRec > 0 ? `<strong>Veículos Recuperados:</strong> ${totalVehiclesRec}<br/>` : ''}
+                                ${totalVehiclesStolen > 0 ? `<strong>Veículos Furtados:</strong> ${totalVehiclesStolen}<br/>` : ''}
+                                ${totalVehiclesRobbed > 0 ? `<strong>Veículos Roubados:</strong> ${totalVehiclesRobbed}` : ''}
                             </td>
                         </tr>
                     </table>
@@ -265,9 +311,18 @@ const Reports: React.FC<ReportsProps> = ({ incidents }) => {
                         <div class="inc-header">${idx + 1}. [${inc.incidentNumber}] - ${inc.type} ${inc.isTco ? '(TCO)' : ''}</div>
                         <div class="inc-meta">
                             Data: ${new Date(inc.date).toLocaleString('pt-BR')}<br/>
-                            SIGMA: ${inc.sigma || 'N/A'} | Local: ${inc.location.address}
+                            SIGMA: ${inc.sigma || 'N/A'} | Local: ${inc.location.address}<br/>
+                            ${inc.garrison ? `<strong>Guarnição:</strong> ${inc.garrison}<br/>` : ''}
+                            ${inc.conductedCount ? `<strong>Conduzidos:</strong> ${inc.conductedCount} (${(inc.conductedProfiles || []).join(', ')})<br/>` : ''}
+                            ${inc.hasFlagrante !== 'Não Informado' ? `<strong>Flagrante:</strong> ${inc.hasFlagrante}<br/>` : ''}
+                            ${inc.weaponType ? `<strong>Arma:</strong> ${inc.weaponType} | Qtd: ${inc.weaponCount || 1}<br/>` : ''}
+                            ${inc.simulacrumCount && inc.type === IncidentType.SIMULACRO ? `<strong>Simulacros:</strong> ${inc.simulacrumCount}<br/>` : ''}
+                            ${inc.victim ? `<strong>Vítima(s):</strong> ${inc.victim} (Total: ${inc.victimCount || inc.victim.split(',').length})<br/>` : ''}
+                            ${inc.vehicleDetails ? `<strong>Veículo:</strong> ${inc.vehicleDetails} | Qtd: ${inc.vehicleCount || inc.stolenVehicleCount || inc.robbedVehicleCount || 1}<br/>` : ''}
+                            ${inc.cvliType ? `<strong>Detalhe:</strong> ${inc.cvliType}<br/>` : ''}
+                            ${inc.drugDetails ? `<strong>Drogas:</strong> ${inc.drugDetails}<br/>` : ''}
                         </div>
-                        <div class="inc-desc">${getCleanDescription(inc)}</div>
+                        <div class="inc-desc"><strong>Relato:</strong> ${getCleanDescription(inc)}</div>
                     </div>
                 `).join('')}
 

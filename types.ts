@@ -85,6 +85,12 @@ export interface Incident {
   vehicleDetails?: string;
   stolenDetails?: string;
   customType?: string;
+  isTimeUndefined?: boolean;
+  vehicleCount?: number;
+  simulacrumCount?: number;
+  stolenVehicleCount?: number;
+  robbedVehicleCount?: number;
+  victimCount?: number;
 }
 
 export interface ReportEntry {

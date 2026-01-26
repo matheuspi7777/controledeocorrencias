@@ -47,10 +47,15 @@ const Dashboard: React.FC<DashboardProps> = ({
   const totalBO = baseIncidents.filter(i => !i.isTco).length;
   const totalTCO = baseIncidents.filter(i => i.isTco).length;
 
-  const totalCvli = baseIncidents.filter(i => i.type === IncidentType.CVLI).length;
-  const totalArmaFogo = baseIncidents.filter(i => i.type === IncidentType.ARMA_FOGO).length;
-  const totalSimulacros = baseIncidents.filter(i => i.type === IncidentType.SIMULACRO).length;
+  const totalCvli = baseIncidents.filter(i => i.type === IncidentType.CVLI || i.type === 'CVLI').reduce((sum, i) => {
+    return sum + (i.victimCount || (i.victim ? i.victim.split(',').length : 1));
+  }, 0);
+  const totalArmaFogo = baseIncidents.filter(i => i.type === IncidentType.ARMA_FOGO).reduce((sum, i) => sum + (i.weaponCount || 1), 0);
+  const totalSimulacros = baseIncidents.filter(i => i.type === IncidentType.SIMULACRO).reduce((sum, i) => sum + (i.simulacrumCount || 1), 0);
   const totalMorteIntervencao = baseIncidents.filter(i => i.type === IncidentType.MORTE_INTERVENCAO).length;
+  const totalVeiculoRecuperado = baseIncidents.filter(i => i.type === IncidentType.VEICULO_RECUPERADO).reduce((sum, i) => sum + (i.vehicleCount || 1), 0);
+  const totalFurtoVeiculo = baseIncidents.filter(i => i.type === IncidentType.FURTO_VEICULO).reduce((sum, i) => sum + (i.stolenVehicleCount || 1), 0);
+  const totalRouboVeiculo = baseIncidents.filter(i => i.type === IncidentType.ROUBO_VEICULO).reduce((sum, i) => sum + (i.robbedVehicleCount || 1), 0);
 
   const totalFlagrantes = baseIncidents.filter(i => i.hasFlagrante === 'Sim').length;
   const totalConduzidos = baseIncidents.reduce((sum, i) => sum + (i.conductedCount || 0), 0);
@@ -77,7 +82,15 @@ const Dashboard: React.FC<DashboardProps> = ({
   baseIncidents.forEach(inc => {
     // Usar o incidentNumber type ou algo simples
     const typeLabel = inc.type as string; // IncidentType enum value
-    natureCounts[typeLabel] = (natureCounts[typeLabel] || 0) + 1;
+    let increment = 1;
+    if (typeLabel === IncidentType.ARMA_FOGO) increment = inc.weaponCount || 1;
+    else if (typeLabel === IncidentType.SIMULACRO) increment = inc.simulacrumCount || 1;
+    else if (typeLabel === IncidentType.VEICULO_RECUPERADO) increment = inc.vehicleCount || 1;
+    else if (typeLabel === IncidentType.FURTO_VEICULO) increment = inc.stolenVehicleCount || 1;
+    else if (typeLabel === IncidentType.ROUBO_VEICULO) increment = inc.robbedVehicleCount || 1;
+    else if (typeLabel === IncidentType.CVLI) increment = inc.victimCount || (inc.victim ? inc.victim.split(',').length : 1);
+
+    natureCounts[typeLabel] = (natureCounts[typeLabel] || 0) + increment;
   });
 
   const pieData = Object.entries(natureCounts).map(([name, value]) => ({
@@ -146,6 +159,16 @@ const Dashboard: React.FC<DashboardProps> = ({
       searchTerm: IncidentType.ARMA_FOGO
     },
     {
+      label: 'Veíc. Recup.',
+      value: totalVeiculoRecuperado,
+      icon: 'fa-car-on',
+      color: totalVeiculoRecuperado > 0 ? 'bg-green-600/20' : 'bg-slate-900/20',
+      textColor: totalVeiculoRecuperado > 0 ? 'text-green-500' : 'text-slate-500',
+      borderColor: totalVeiculoRecuperado > 0 ? 'border-green-600' : 'border-slate-800',
+      isPositive: totalVeiculoRecuperado > 0,
+      searchTerm: IncidentType.VEICULO_RECUPERADO
+    },
+    {
       label: 'Simulacros',
       value: totalSimulacros,
       icon: 'fa-person-rifle',
@@ -198,12 +221,12 @@ const Dashboard: React.FC<DashboardProps> = ({
           </h3>
           <div className="h-80 w-full relative min-h-[320px]">
             {pieData.length > 0 ? (
-              <ResponsiveContainer width="99%" height={320} debounce={100}>
+              <ResponsiveContainer width="99%" height={320}>
                 <PieChart>
                   <Pie
                     data={pieData}
-                    innerRadius={80}
-                    outerRadius={100}
+                    innerRadius={60}
+                    outerRadius={80}
                     paddingAngle={5}
                     dataKey="value"
                   >
@@ -220,28 +243,25 @@ const Dashboard: React.FC<DashboardProps> = ({
                       backgroundColor: '#0f172a',
                       border: '1px solid #334155',
                       borderRadius: '12px',
-                      padding: '12px',
+                      padding: '8px',
                       boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)'
                     }}
                     itemStyle={{
                       color: '#ffffff',
-                      fontSize: '11px',
-                      fontWeight: '900',
-                      textTransform: 'uppercase'
-                    }}
-                    labelStyle={{
-                      color: '#ffd700',
                       fontSize: '10px',
                       fontWeight: '900',
-                      marginBottom: '4px',
                       textTransform: 'uppercase'
                     }}
+                    labelStyle={{ display: 'none' }}
                   />
                   <Legend
+                    layout="vertical"
+                    align="right"
+                    verticalAlign="middle"
                     iconType="circle"
                     formatter={(value) => (
-                      <span className={`text-[10px] font-black uppercase tracking-tighter ${value === IncidentType.CVLI || value === IncidentType.MORTE_INTERVENCAO ? 'text-red-500' : 'text-slate-400'}`}>
-                        {value}
+                      <span className={`text-[9px] font-black uppercase tracking-tighter ${value === IncidentType.CVLI || value === IncidentType.MORTE_INTERVENCAO ? 'text-red-500' : 'text-slate-400'}`}>
+                        {value.length > 20 ? value.substring(0, 20) + '...' : value}
                       </span>
                     )}
                   />

@@ -1,3 +1,4 @@
+
 import * as React from 'react';
 import { useState } from 'react';
 import { supabase } from '../services/supabaseClient';
@@ -53,7 +54,7 @@ const Auth: React.FC = () => {
             <div className="w-full max-w-md animate-in fade-in zoom-in duration-700">
                 <div className="bg-[#0f172a]/80 backdrop-blur-xl p-8 lg:p-10 rounded-[2.5rem] shadow-2xl border border-slate-800 relative z-10">
                     <div className="flex flex-col items-center mb-10">
-                        <div className="w-20 h-20 bg-gradient-to-br from-[#ffd700] to-[#b8860b] rounded-2xl flex items-center justify-center text-[#001021] shadow-xl mb-6 transform -rotate-3 hover:rotate-0 transition-transform duration-300">
+                        <div className="w-20 h-20 bg-gradient-to-br from-[#ffd700] to-[#b8860b] rounded-2xl flex items-center justify-center text-[#001021] shadow-xl mb-6 hover:scale-105 transition-transform duration-300">
                             <i className="fa-solid fa-shield-halved text-4xl"></i>
                         </div>
                         <h2 className="text-2xl font-black text-white tracking-tight uppercase">43° BPM - P/3</h2>

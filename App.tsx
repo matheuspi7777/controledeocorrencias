@@ -124,7 +124,13 @@ const App: React.FC = () => {
         vehicleDetails: row.vehicle_details,
         stolenDetails: row.stolen_details,
         customType: row.custom_type,
-        isTco: row.is_tco
+        isTco: row.is_tco,
+        isTimeUndefined: row.is_time_undefined,
+        vehicleCount: row.vehicle_count,
+        simulacrumCount: row.simulacrum_count,
+        stolenVehicleCount: row.stolen_vehicle_count,
+        robbedVehicleCount: row.robbed_vehicle_count,
+        victimCount: row.victim_count
       }));
 
       setIncidents(mappedIncidents);
@@ -181,7 +187,7 @@ const App: React.FC = () => {
   const handleSaveIncident = async (incidentData: Partial<Incident>) => {
     const isEditing = !!editingIncident;
     try {
-      const payload = {
+      const payload: any = {
         type: incidentData.type,
         incident_number: incidentData.incidentNumber,
         sigma: incidentData.sigma,
@@ -207,8 +213,23 @@ const App: React.FC = () => {
         stolen_details: incidentData.stolenDetails,
         custom_type: incidentData.customType,
         user_id: session?.user.id,
-        is_tco: incidentData.isTco
+        is_tco: incidentData.isTco,
+        is_time_undefined: incidentData.isTimeUndefined,
+        vehicle_count: incidentData.vehicleCount,
+        simulacrum_count: incidentData.simulacrumCount,
+        stolen_vehicle_count: incidentData.stolenVehicleCount,
+        robbed_vehicle_count: incidentData.robbedVehicleCount,
+        victim_count: incidentData.victimCount
       };
+
+      if (!isEditing) {
+        let baseNumber = incidentData.incidentNumber || 'S/N';
+        const existingWithSameNumber = incidents.filter(i => i.incidentNumber.includes(baseNumber));
+        if (existingWithSameNumber.length > 0) {
+          const suffix = String.fromCharCode(65 + existingWithSameNumber.length); // 65 is 'A'
+          payload.incident_number = `${baseNumber} (${suffix})`;
+        }
+      }
 
       if (isEditing) {
         const { error } = await supabase
@@ -316,6 +337,8 @@ const App: React.FC = () => {
         if (searchTerm === 'BO') return !i.isTco;
         if (searchTerm === 'CONDUZIDOS') return (i.conductedCount || 0) > 0;
         if (searchTerm === 'FLAGRANTE') return i.hasFlagrante === 'Sim';
+        if (term === 'pendente') return i.status === IncidentStatus.PENDENTE;
+        if (term === 'concluido') return i.status === IncidentStatus.CONCLUIDO;
 
         // Strict match for Dashboard cards (Exact Enum Match)
         if (i.type === searchTerm) return true;
@@ -522,7 +545,12 @@ const App: React.FC = () => {
           {activeTab === 'admin' && userProfile?.is_admin && <AdminPanel />}
           {activeTab === 'new' && (
             <div className="max-w-4xl mx-auto">
-              <IncidentForm onSave={handleSaveIncident} onCancel={() => setActiveTab('list')} initialData={editingIncident} />
+              <IncidentForm
+                onSave={handleSaveIncident}
+                onCancel={() => setActiveTab('list')}
+                initialData={editingIncident}
+                existingIncidents={incidents}
+              />
             </div>
           )}
         </div>

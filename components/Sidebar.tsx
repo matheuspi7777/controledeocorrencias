@@ -19,7 +19,6 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onLogout, is
   const menuItems = [
     { id: 'dashboard', icon: 'fa-chart-line', label: 'Painel Geral' },
     { id: 'list', icon: 'fa-list-check', label: 'Ocorrências' },
-
     { id: 'reports', icon: 'fa-file-pdf', label: 'Relatórios' },
     { id: 'analysis', icon: 'fa-brain', label: 'Inteligência IA' },
     { id: 'new', icon: 'fa-plus-circle', label: 'Registrar Nova' },
@@ -45,7 +44,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onLogout, is
 
   return (
     <div className="w-64 bg-[#001021] h-full lg:h-screen text-white flex flex-col shadow-[10px_0_30px_rgba(0,0,0,0.3)] border-r border-red-900/30 overflow-y-auto custom-scrollbar">
-      {/* Detalhe Superior em Vermelho */}
+      {/* Red accent top bar */}
       <div className="h-1.5 w-full bg-red-700 shadow-[0_0_10px_rgba(185,28,28,0.5)] flex-shrink-0"></div>
 
       <div className="pt-6 pb-4 px-4 flex flex-col items-center gap-2 border-b border-white/5 bg-gradient-to-b from-[#001a35] to-[#001021] flex-shrink-0">
@@ -69,7 +68,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onLogout, is
           ) : (
             <svg viewBox="0 0 100 120" className="w-full h-full drop-shadow-[0_8px_15px_rgba(0,0,0,0.7)] overflow-visible">
               <defs>
-                <clipPath id="shieldClip">
+                <clipPath id="shieldClipSidebar">
                   <path d="M10,5 L90,5 L90,85 C90,105 50,120 50,120 C50,120 10,105 10,85 Z" />
                 </clipPath>
               </defs>
@@ -80,7 +79,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onLogout, is
                 strokeWidth="2.5"
               />
               <path d="M11.5,6.5 L88.5,6.5 L88.5,84 C88.5,103 50,118 50,118 C50,118 11.5,103 11.5,84 Z" fill="white" />
-              <g clipPath="url(#shieldClip)">
+              <g clipPath="url(#shieldClipSidebar)">
                 <rect x="10" y="5" width="80" height="12" fill="#000080" />
                 <rect x="10" y="17" width="80" height="15" fill="#ff0000" />
                 <text x="50" y="28" textAnchor="middle" fill="white" fontSize="12" fontWeight="900" fontFamily="Arial Black, Arial, sans-serif">43º BPM</text>
@@ -111,51 +110,51 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onLogout, is
           <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-2xl flex items-center justify-center backdrop-blur-[2px]">
             <div className="flex flex-col items-center gap-1">
               <i className="fa-solid fa-camera text-white text-lg"></i>
-              <span className="text-[8px] font-black uppercase text-white tracking-widest">Brasão</span>
+              <span className="text-[8px] font-black uppercase text-white tracking-widest">Alterar</span>
             </div>
           </div>
         </div>
 
         <div className="text-center mt-1">
-          <span className="text-sm font-black tracking-widest uppercase block text-[#ffd700]">43° BPM</span>
-          <span className="text-[10px] font-bold tracking-tight uppercase text-white/40 leading-none">POLÍCIA MILITAR DO MARANHÃO</span>
+          <h1 className="text-sm font-black text-white tracking-widest uppercase mb-0.5">43º BPM - P/3</h1>
+          <p className="text-[8px] font-black text-red-500 uppercase tracking-[0.2em] animate-pulse">Sessão Ativa</p>
         </div>
       </div>
 
-      <nav className="flex-1 py-4 bg-[#001021]">
+      <nav className="flex-1 px-3 py-6 space-y-1.5 flex-grow">
+        <p className="text-[8px] font-black text-slate-500 uppercase tracking-[0.2em] ml-3 mb-3">Menu Principal</p>
         {menuItems.map((item) => (
           <button
             key={item.id}
             onClick={() => setActiveTab(item.id)}
-            className={`w-full flex items-center gap-4 px-6 py-4 transition-all relative group ${activeTab === item.id
-              ? 'bg-red-900/20 text-white border-r-4 border-red-600'
-              : 'text-slate-400 hover:bg-white/5 hover:text-white'
+            className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all duration-300 group relative overflow-hidden ${activeTab === item.id
+                ? 'bg-gradient-to-r from-red-700/20 to-red-900/10 text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)]'
+                : 'text-slate-400 hover:bg-white/5 hover:text-white'
               }`}
           >
             {activeTab === item.id && (
-              <div className="absolute left-0 top-0 bottom-0 w-1 bg-red-600"></div>
+              <div className="absolute left-0 top-0 bottom-0 w-1 bg-red-600 shadow-[0_0_10px_rgba(185,28,28,1)]"></div>
             )}
-
-            <i className={`fa-solid ${item.icon} w-6 text-center text-lg transition-colors ${activeTab === item.id ? 'text-red-500' : 'text-slate-500 group-hover:text-red-400'
-              }`}></i>
-            <span className={`font-bold text-xs uppercase tracking-wider ${activeTab === item.id ? 'text-white' : 'text-slate-400'
-              }`}>{item.label}</span>
+            <div className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all duration-300 ${activeTab === item.id ? 'bg-red-600 text-white shadow-lg shadow-red-600/20' : 'bg-slate-800/50 text-slate-500 group-hover:bg-slate-700 group-hover:text-slate-300'
+              }`}>
+              <i className={`fa-solid ${item.icon} text-sm`}></i>
+            </div>
+            <span className={`text-[10px] font-black uppercase tracking-widest transition-all duration-300 ${activeTab === item.id ? 'translate-x-1' : ''
+              }`}>
+              {item.label}
+            </span>
           </button>
         ))}
-
-        <button
-          onClick={onLogout}
-          className="w-full flex items-center gap-4 px-6 py-4 mt-4 text-slate-400 hover:bg-red-900/10 hover:text-red-400 transition-all group"
-        >
-          <i className="fa-solid fa-right-from-bracket w-6 text-center text-lg group-hover:text-red-500 transition-colors"></i>
-          <span className="font-bold text-xs uppercase tracking-wider">Sair do Sistema</span>
-        </button>
       </nav>
 
-      <div className="p-6 mt-auto bg-[#000d1a] border-t border-red-900/20 text-center flex-shrink-0">
-        <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest leading-tight">
-          P/3 - SEÇÃO DE ESTATÍSTICA<br />DO 43° BPM
-        </p>
+      <div className="p-4 mt-auto border-t border-white/5 bg-black/20 flex-shrink-0">
+        <button
+          onClick={onLogout}
+          className="w-full flex items-center justify-center gap-3 px-4 py-3.5 rounded-2xl text-slate-500 hover:bg-red-900/20 hover:text-red-500 transition-all duration-300 font-black text-[10px] uppercase tracking-[0.2em] border border-transparent hover:border-red-900/30 group"
+        >
+          <i className="fa-solid fa-power-off group-hover:scale-110 transition-transform"></i>
+          Encerrar Sessão
+        </button>
       </div>
     </div>
   );

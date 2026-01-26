@@ -22,13 +22,14 @@ const IncidentDetail: React.FC<IncidentDetailProps> = ({ incident, onClose, onEd
   const isFurtoVeiculo = incident.type === IncidentType.FURTO_VEICULO;
   const isRouboVeiculo = incident.type === IncidentType.ROUBO_VEICULO;
   const isRouboPatrimonial = incident.type === IncidentType.ROUBO_RESIDENCIA || incident.type === IncidentType.ROUBO_COMERCIAL;
-  const isPersonIncident = isCVLIStyle || isCadaverOrSuicide || isMandado || isRouboPessoa;
+  const isOther = incident.type === IncidentType.OUTRO;
+  const isPersonIncident = isCVLIStyle || isCadaverOrSuicide || isMandado || isRouboPessoa || isOther;
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-2 sm:p-4">
       <div className="absolute inset-0 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300" onClick={onClose}></div>
       <div className="relative bg-[#0f172a] rounded-3xl shadow-2xl w-full max-w-4xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-200 border border-slate-800">
-        
+
         <div className="p-4 sm:p-6 border-b border-slate-800 flex justify-between items-center bg-white/5">
           <div className="flex items-center gap-3 sm:gap-4">
             <div className="w-10 h-10 sm:w-12 sm:h-12 bg-[#ffd700] rounded-xl flex items-center justify-center text-[#002b5c] shadow-lg shadow-[#ffd700]/10">
@@ -40,7 +41,7 @@ const IncidentDetail: React.FC<IncidentDetailProps> = ({ incident, onClose, onEd
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <button 
+            <button
               onClick={() => onEdit(incident)}
               className="px-3 sm:px-4 py-1.5 sm:py-2 bg-[#1e293b] text-[#ffd700] font-bold rounded-lg hover:bg-[#ffd700] hover:text-[#002b5c] transition-all text-[10px] sm:text-xs flex items-center gap-2 border border-[#ffd700]/20"
             >
@@ -64,9 +65,8 @@ const IncidentDetail: React.FC<IncidentDetailProps> = ({ incident, onClose, onEd
             </div>
             <div className="bg-[#1e293b] p-3 sm:p-4 rounded-2xl border border-slate-800">
               <p className="text-[8px] sm:text-[10px] font-black text-slate-500 uppercase mb-1">Status</p>
-              <span className={`inline-block px-2 py-0.5 rounded text-[8px] sm:text-[10px] font-black uppercase mt-1 ${
-                incident.status === IncidentStatus.CONCLUIDO ? 'bg-green-900/40 text-green-400' : 'bg-amber-900/40 text-amber-400'
-              }`}>
+              <span className={`inline-block px-2 py-0.5 rounded text-[8px] sm:text-[10px] font-black uppercase mt-1 ${incident.status === IncidentStatus.CONCLUIDO ? 'bg-green-900/40 text-green-400' : 'bg-amber-900/40 text-amber-400'
+                }`}>
                 {incident.status}
               </span>
             </div>
@@ -84,31 +84,32 @@ const IncidentDetail: React.FC<IncidentDetailProps> = ({ incident, onClose, onEd
                   {incident.type}
                 </p>
               </div>
-              
-              {(incident.conductedCount && incident.conductedCount > 0) && (
-                <div className="bg-red-600 p-4 rounded-2xl shadow-lg border border-red-500">
-                  <p className="text-[9px] font-black text-white uppercase mb-2 tracking-widest opacity-80">Produtividade P3</p>
+
+              {incident.conductedCount !== undefined && (
+                <div className={`${incident.conductedCount > 0 ? 'bg-red-600 border-red-500' : 'bg-slate-800 border-slate-700'} p-4 rounded-2xl shadow-lg border`}>
+                  <p className={`text-[9px] font-black uppercase mb-2 tracking-widest ${incident.conductedCount > 0 ? 'text-white opacity-80' : 'text-slate-500'}`}>Produtividade P3</p>
                   <div className="flex items-center gap-3 mb-3">
-                    <span className="text-2xl sm:text-3xl font-black text-white">{incident.conductedCount}</span>
-                    <span className="text-[9px] sm:text-[10px] font-black text-white uppercase leading-tight">
-                      Conduzido(s)<br/>Identificado(s)
+                    <span className={`text-2xl sm:text-3xl font-black ${incident.conductedCount > 0 ? 'text-white' : 'text-slate-400'}`}>{incident.conductedCount}</span>
+                    <span className={`text-[9px] sm:text-[10px] font-black uppercase leading-tight ${incident.conductedCount > 0 ? 'text-white' : 'text-slate-500'}`}>
+                      Conduzido(s)<br />Identificado(s)
                     </span>
                   </div>
-                  <div className="space-y-1 mt-2 pt-2 border-t border-white/20">
-                    {(incident.conductedProfiles || [incident.conductedSex || 'Não Informado']).map((profile, i) => (
-                      <div key={i} className="flex justify-between items-center text-[9px] font-black text-white/90 uppercase">
-                        <span>Perfil #{i+1}</span>
-                        <span className="bg-white/10 px-1.5 py-0.5 rounded">{profile}</span>
-                      </div>
-                    ))}
-                  </div>
+                  {incident.conductedCount > 0 && (
+                    <div className="space-y-1 mt-2 pt-2 border-t border-white/20">
+                      {(incident.conductedProfiles || [incident.conductedSex || 'Não Informado']).map((profile, i) => (
+                        <div key={i} className="flex justify-between items-center text-[9px] font-black text-white/90 uppercase">
+                          <span>Perfil #{i + 1}</span>
+                          <span className="bg-white/10 px-1.5 py-0.5 rounded">{profile}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 
               {incident.hasFlagrante && incident.hasFlagrante !== 'Não Informado' && (
-                <div className={`p-4 rounded-2xl shadow-lg border flex items-center justify-between ${
-                  incident.hasFlagrante === 'Sim' ? 'bg-green-600 border-green-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-400'
-                }`}>
+                <div className={`p-4 rounded-2xl shadow-lg border flex items-center justify-between ${incident.hasFlagrante === 'Sim' ? 'bg-green-600 border-green-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-400'
+                  }`}>
                   <div>
                     <p className="text-[9px] font-black uppercase mb-0.5 tracking-widest opacity-80">Flagrante Delito</p>
                     <p className="text-base sm:text-lg font-black uppercase leading-none">{incident.hasFlagrante}</p>
@@ -131,24 +132,30 @@ const IncidentDetail: React.FC<IncidentDetailProps> = ({ incident, onClose, onEd
                 <div className="space-y-6">
                   <div className="bg-[#1e293b] rounded-2xl p-5 sm:p-6 border border-slate-800 shadow-inner">
                     <h3 className="text-[10px] sm:text-[11px] font-black text-white uppercase tracking-widest mb-4 flex items-center gap-2">
-                      <i className={`fa-solid ${isMandado ? 'fa-user-lock' : 'fa-user-tag'} text-red-500`}></i> 
+                      <i className={`fa-solid ${isMandado ? 'fa-user-lock' : 'fa-user-tag'} text-red-500`}></i>
                       {isMandado ? 'Dados do Conduzido(a)' : 'Dados da Vítima'}
                     </h3>
                     <div className="space-y-4 italic">
                       {isCVLIStyle && (
                         <div className="flex flex-col border-b border-slate-700/50 pb-2">
-                           <span className="text-[9px] sm:text-[10px] font-black text-slate-500 uppercase mb-1">
-                             {isMorteIntervencao ? 'HISTÓRICO DA OCORRÊNCIA' : 'Detalhe'}
-                           </span>
-                           <span className="text-xs sm:text-sm font-bold text-white uppercase">{incident.cvliType}</span>
+                          <span className="text-[9px] sm:text-[10px] font-black text-slate-500 uppercase mb-1">
+                            {isMorteIntervencao ? 'HISTÓRICO DA OCORRÊNCIA' : 'Detalhe'}
+                          </span>
+                          <span className="text-xs sm:text-sm font-bold text-white uppercase">{incident.cvliType}</span>
                         </div>
                       )}
                       <div className="flex justify-between border-b border-slate-700/50 pb-2">
-                         <span className="text-[9px] sm:text-[10px] font-black text-slate-500 uppercase">
-                           {isMandado ? 'Conduzido(a)' : 'Vítima'}
-                         </span>
-                         <span className="text-xs sm:text-sm font-bold text-white uppercase">{incident.victim || 'Não informada'}</span>
+                        <span className="text-[9px] sm:text-[10px] font-black text-slate-500 uppercase">
+                          {isMandado ? 'Conduzido(a)' : 'Vítima'}
+                        </span>
+                        <span className="text-xs sm:text-sm font-bold text-white uppercase">{incident.victim || 'Não informada'}</span>
                       </div>
+                      {(isCVLIStyle || isOther || (incident.type as string).includes('OUTRO')) && (
+                        <div className="flex justify-between border-b border-slate-700/50 pb-2">
+                          <span className="text-[9px] sm:text-[10px] font-black text-slate-500 uppercase">Quantidade de Vítima(s)</span>
+                          <span className="text-xs sm:text-sm font-bold text-white uppercase">{incident.victimCount || (incident.victim ? incident.victim.split(',').length : 1)}</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                   <div className="bg-[#1e293b] rounded-2xl p-5 sm:p-6 border border-slate-800 shadow-inner">
@@ -166,8 +173,8 @@ const IncidentDetail: React.FC<IncidentDetailProps> = ({ incident, onClose, onEd
                     </h3>
                     <div className="space-y-4 italic">
                       <div className="flex justify-between border-b border-slate-700/50 pb-2">
-                         <span className="text-[9px] sm:text-[10px] font-black text-slate-500 uppercase">Drogas</span>
-                         <span className="text-xs sm:text-sm font-bold text-white uppercase">{incident.drugDetails || 'Não informado'}</span>
+                        <span className="text-[9px] sm:text-[10px] font-black text-slate-500 uppercase">Drogas</span>
+                        <span className="text-xs sm:text-sm font-bold text-white uppercase">{incident.drugDetails || 'Não informado'}</span>
                       </div>
                     </div>
                   </div>
@@ -188,32 +195,32 @@ const IncidentDetail: React.FC<IncidentDetailProps> = ({ incident, onClose, onEd
                       {isWeaponSeizure && (
                         <>
                           <div className="flex justify-between border-b border-slate-700/50 pb-2 col-span-2">
-                             <span className="text-[9px] sm:text-[10px] font-black text-slate-500 uppercase">Arma</span>
-                             <span className="text-xs sm:text-sm font-bold text-white uppercase">{incident.weaponType || 'Não informada'}</span>
+                            <span className="text-[9px] sm:text-[10px] font-black text-slate-500 uppercase">Arma</span>
+                            <span className="text-xs sm:text-sm font-bold text-white uppercase">{incident.weaponType || 'Não informada'}</span>
                           </div>
                           <div className="flex justify-between border-b border-slate-700/50 pb-2 col-span-2">
-                             <span className="text-[9px] sm:text-[10px] font-black text-slate-500 uppercase">Qtd de Armas</span>
-                             <span className="text-xs sm:text-sm font-bold text-white uppercase">{incident.weaponCount || 1}</span>
+                            <span className="text-[9px] sm:text-[10px] font-black text-slate-500 uppercase">Qtd de Armas</span>
+                            <span className="text-xs sm:text-sm font-bold text-white uppercase">{incident.weaponCount || 1}</span>
                           </div>
                           <div className="flex justify-between border-b border-slate-700/50 pb-2">
-                             <span className="text-[9px] sm:text-[10px] font-black text-slate-500 uppercase">Intactas</span>
-                             <span className="text-xs sm:text-sm font-bold text-white">{incident.ammoIntactCount || 0}</span>
+                            <span className="text-[9px] sm:text-[10px] font-black text-slate-500 uppercase">Intactas</span>
+                            <span className="text-xs sm:text-sm font-bold text-white">{incident.ammoIntactCount || 0}</span>
                           </div>
                           <div className="flex justify-between border-b border-slate-700/50 pb-2">
-                             <span className="text-[9px] sm:text-[10px] font-black text-slate-500 uppercase">Deflagradas</span>
-                             <span className="text-xs sm:text-sm font-bold text-white">{incident.ammoDeflagratedCount || 0}</span>
+                            <span className="text-[9px] sm:text-[10px] font-black text-slate-500 uppercase">Deflagradas</span>
+                            <span className="text-xs sm:text-sm font-bold text-white">{incident.ammoDeflagratedCount || 0}</span>
                           </div>
                         </>
                       )}
                       {isSimulacro && (
                         <div className="flex justify-between border-b border-slate-700/50 pb-2 col-span-2">
-                           <span className="text-[9px] sm:text-[10px] font-black text-slate-500 uppercase">Item</span>
-                           <span className="text-xs sm:text-sm font-bold text-white uppercase">Simulacro de Arma de Fogo</span>
+                          <span className="text-[9px] sm:text-[10px] font-black text-slate-500 uppercase">Item</span>
+                          <span className="text-xs sm:text-sm font-bold text-white uppercase">Simulacro de Arma de Fogo</span>
                         </div>
                       )}
                     </div>
                   </div>
-                  
+
                   {incident.photo && (
                     <div className="bg-[#1e293b] rounded-2xl p-5 sm:p-6 border border-slate-800 shadow-inner">
                       <h3 className="text-[10px] sm:text-[11px] font-black text-white uppercase tracking-widest mb-3 flex items-center gap-2">
@@ -238,10 +245,16 @@ const IncidentDetail: React.FC<IncidentDetailProps> = ({ incident, onClose, onEd
                     </h3>
                     <div className="space-y-4 italic">
                       <div className="flex flex-col border-b border-slate-700/50 pb-2">
-                         <span className="text-[9px] sm:text-[10px] font-black text-slate-500 uppercase mb-1">
-                           Detalhes
-                         </span>
-                         <span className="text-xs sm:text-sm font-bold text-white uppercase leading-relaxed">{incident.vehicleDetails || 'Não informados'}</span>
+                        <span className="text-[9px] sm:text-[10px] font-black text-slate-500 uppercase mb-1">
+                          Detalhes
+                        </span>
+                        <span className="text-xs sm:text-sm font-bold text-white uppercase leading-relaxed">{incident.vehicleDetails || 'Não informados'}</span>
+                      </div>
+                      <div className="flex justify-between border-b border-slate-700/50 pb-2">
+                        <span className="text-[9px] sm:text-[10px] font-black text-slate-500 uppercase">Quantidade de Veículos</span>
+                        <span className="text-xs sm:text-sm font-bold text-white uppercase">
+                          {isVeiculoRecuperado ? (incident.vehicleCount || 1) : (isFurtoVeiculo ? (incident.stolenVehicleCount || 1) : (incident.robbedVehicleCount || 1))}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -260,10 +273,10 @@ const IncidentDetail: React.FC<IncidentDetailProps> = ({ incident, onClose, onEd
                     </h3>
                     <div className="space-y-4 italic">
                       <div className="flex flex-col border-b border-slate-700/50 pb-2">
-                         <span className="text-[9px] sm:text-[10px] font-black text-slate-500 uppercase mb-1">
-                           Bens e Dinâmica
-                         </span>
-                         <span className="text-xs sm:text-sm font-bold text-white uppercase leading-relaxed whitespace-pre-wrap">{incident.stolenDetails || 'Não informados'}</span>
+                        <span className="text-[9px] sm:text-[10px] font-black text-slate-500 uppercase mb-1">
+                          Bens e Dinâmica
+                        </span>
+                        <span className="text-xs sm:text-sm font-bold text-white uppercase leading-relaxed whitespace-pre-wrap">{incident.stolenDetails || 'Não informados'}</span>
                       </div>
                     </div>
                   </div>
@@ -289,7 +302,7 @@ const IncidentDetail: React.FC<IncidentDetailProps> = ({ incident, onClose, onEd
         </div>
 
         <div className="p-4 sm:p-6 border-t border-slate-800 bg-white/5 flex justify-end">
-          <button 
+          <button
             onClick={onClose}
             className="w-full sm:w-auto px-8 py-3 bg-[#ffd700] text-[#002b5c] font-black rounded-xl hover:bg-[#ffea00] transition-all text-[10px] sm:text-xs uppercase tracking-widest shadow-lg shadow-[#ffd700]/10"
           >
