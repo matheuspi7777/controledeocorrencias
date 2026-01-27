@@ -14,17 +14,21 @@ const IncidentForm: React.FC<IncidentFormProps> = ({ onSave, onCancel, initialDa
   const isEditing = !!initialData;
   const photoInputRef = useRef<HTMLInputElement>(null);
 
-  const getLocalDatetime = () => {
-    const now = new Date();
-    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-    return now.toISOString().slice(0, 16);
+  const getLocalDatetimeForInput = (date?: Date | string) => {
+    const d = date ? new Date(date) : new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    const hours = String(d.getHours()).padStart(2, '0');
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
   };
 
   const [formData, setFormData] = useState<Partial<Incident>>({
     type: IncidentType.CVLI,
     isTco: false,
     status: IncidentStatus.PENDENTE,
-    date: getLocalDatetime(),
+    date: getLocalDatetimeForInput(),
     location: { address: '' },
     description: '',
     cvliType: '',
@@ -100,7 +104,7 @@ const IncidentForm: React.FC<IncidentFormProps> = ({ onSave, onCancel, initialDa
     if (initialData) {
       setFormData({
         ...initialData,
-        date: new Date(initialData.date).toISOString().slice(0, 16),
+        date: getLocalDatetimeForInput(initialData.date),
         conductedProfiles: initialData.conductedProfiles || (initialData.conductedSex ? [initialData.conductedSex] : []),
         victimCount: initialData.victimCount || (initialData.victim ? initialData.victim.split(',').length : 1)
       });
@@ -249,6 +253,7 @@ const IncidentForm: React.FC<IncidentFormProps> = ({ onSave, onCancel, initialDa
       type: finalType,
       id: isEditing ? initialData?.id : Math.random().toString(36).substr(2, 9),
       createdAt: isEditing ? initialData?.createdAt : new Date().toISOString(),
+      date: formData.date ? new Date(formData.date).toISOString() : new Date().toISOString(),
       description: finalDescription || '',
       sigma: formData.sigma || 'N/A',
       garrison: formData.garrison || '',

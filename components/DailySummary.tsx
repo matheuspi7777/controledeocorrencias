@@ -206,7 +206,9 @@ const DailySummaryView: React.FC<DailySummaryProps> = ({ summaries, onSave, onDe
   };
 
   const formatDateLocale = (dateStr: string) => {
-    const [year, month, day] = dateStr.split('-').map(Number);
+    // If it's already an ISO string or just yyyy-mm-dd
+    const parts = dateStr.includes('T') ? dateStr.split('T')[0].split('-') : dateStr.split('-');
+    const [year, month, day] = parts.map(Number);
     const date = new Date(year, month - 1, day);
     return date.toLocaleDateString('pt-BR');
   };
