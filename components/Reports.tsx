@@ -167,38 +167,42 @@ const Reports: React.FC<ReportsProps> = ({ incidents }) => {
         currentY += 12;
 
         exportIncidents.forEach((inc, idx) => {
-          if (currentY > 240) { doc.addPage(); currentY = 20; }
+          if (currentY > 250) { doc.addPage(); currentY = 20; }
 
-          doc.setFontSize(9); doc.setTextColor(0, 0, 0); doc.setFont("helvetica", "bold");
+          doc.setFontSize(10); doc.setTextColor(0, 0, 0); doc.setFont("helvetica", "bold");
           const title = `${idx + 1}. [${inc.incidentNumber}] - ${inc.type}${inc.isTco ? ' (TCO)' : ''}`;
-          doc.text(title, 20, currentY);
+          const splitTitle = doc.splitTextToSize(title, 175);
+          doc.text(splitTitle, 20, currentY);
+          currentY += (splitTitle.length * 5);
 
-          currentY += 6;
           doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(80, 80, 80);
           const dateStr = new Date(inc.date).toLocaleString('pt-BR');
-          doc.text(`Data/Hora: ${dateStr} | SIGMA: ${inc.sigma || 'N/A'} | Local: ${inc.location.address}`, 25, currentY);
-          currentY += 5;
+          const metaLine = `Data/Hora: ${dateStr} | SIGMA: ${inc.sigma || 'N/A'} | Local: ${inc.location.address}`;
+          const splitMeta = doc.splitTextToSize(metaLine, 170);
+          doc.text(splitMeta, 25, currentY);
+          currentY += (splitMeta.length * 5);
 
           doc.setFont("helvetica", "bold"); doc.setTextColor(0, 43, 92);
-          let detailLines: string[] = [];
+          let details: string[] = [];
 
-          if (inc.garrison) detailLines.push(`GUARNICAO: ${inc.garrison}`);
-          if (inc.conductedCount) detailLines.push(`CONDUZIDOS: ${inc.conductedCount} (${(inc.conductedProfiles || []).join(', ')})`);
-          if (inc.hasFlagrante !== 'Não Informado') detailLines.push(`FLAGRANTE: ${inc.hasFlagrante}`);
+          if (inc.garrison) details.push(`GUARNICAO: ${inc.garrison}`);
+          if (inc.conductedCount) details.push(`CONDUZIDOS: ${inc.conductedCount} (${(inc.conductedProfiles || []).join(', ')})`);
+          if (inc.hasFlagrante !== 'Não Informado') details.push(`FLAGRANTE: ${inc.hasFlagrante}`);
 
           // Type specific details
-          if (inc.weaponType) detailLines.push(`ARMA: ${inc.weaponType} | QTD: ${inc.weaponCount || 1} | MUNIÇÃO: ${inc.ammoIntactCount}i/${inc.ammoDeflagratedCount}d`);
-          if (inc.simulacrumCount && inc.type === IncidentType.SIMULACRO) detailLines.push(`SIMULACROS: ${inc.simulacrumCount}`);
-          if (inc.victim) detailLines.push(`VITIMA(S): ${inc.victim} (Total: ${inc.victimCount || inc.victim.split(',').length})`);
-          if (inc.vehicleDetails) detailLines.push(`VEICULO: ${inc.vehicleDetails} | QTD: ${inc.vehicleCount || inc.stolenVehicleCount || inc.robbedVehicleCount || 1}`);
-          if (inc.stolenDetails) detailLines.push(`BENS/DINAMICA: ${inc.stolenDetails}`);
-          if (inc.cvliType) detailLines.push(`DETALHE NATUREZA: ${inc.cvliType}`);
-          if (inc.drugDetails) detailLines.push(`DROGAS: ${inc.drugDetails}`);
+          if (inc.weaponType) details.push(`ARMA: ${inc.weaponType} | QTD: ${inc.weaponCount || 1} | MUNIÇÃO: ${inc.ammoIntactCount}i/${inc.ammoDeflagratedCount}d`);
+          if (inc.simulacrumCount && inc.type === IncidentType.SIMULACRO) details.push(`SIMULACROS: ${inc.simulacrumCount}`);
+          if (inc.victim) details.push(`VITIMA(S): ${inc.victim} (Total: ${inc.victimCount || inc.victim.split(',').length})`);
+          if (inc.vehicleDetails) details.push(`VEICULO: ${inc.vehicleDetails} | QTD: ${inc.vehicleCount || inc.stolenVehicleCount || inc.robbedVehicleCount || 1}`);
+          if (inc.stolenDetails) details.push(`BENS/DINAMICA: ${inc.stolenDetails}`);
+          if (inc.cvliType) details.push(`DETALHE NATUREZA: ${inc.cvliType}`);
+          if (inc.drugDetails) details.push(`DROGAS: ${inc.drugDetails}`);
 
-          detailLines.forEach(line => {
-            if (currentY > 270) { doc.addPage(); currentY = 20; }
-            doc.text(line, 25, currentY);
-            currentY += 4;
+          details.forEach(line => {
+            const splitLine = doc.splitTextToSize(line, 170);
+            if (currentY + (splitLine.length * 4) > 275) { doc.addPage(); currentY = 20; }
+            doc.text(splitLine, 25, currentY);
+            currentY += (splitLine.length * 4.5);
           });
 
           // Description (Relato Técnico)
@@ -206,13 +210,13 @@ const Reports: React.FC<ReportsProps> = ({ incidents }) => {
           const desc = `RELATO: ${getCleanDescription(inc)}`;
           const splitDesc = doc.splitTextToSize(desc, 170);
 
-          if (currentY + (splitDesc.length * 4) > 280) { doc.addPage(); currentY = 20; }
+          if (currentY + (splitDesc.length * 4) > 275) { doc.addPage(); currentY = 20; }
           doc.text(splitDesc, 25, currentY);
           currentY += (splitDesc.length * 4) + 6;
 
           doc.setDrawColor(230, 230, 230);
           doc.line(25, currentY - 3, 185, currentY - 3);
-          currentY += 2;
+          currentY += 4;
         });
 
         doc.save(`Relatorio_P3_${new Date().getTime()}.pdf`);

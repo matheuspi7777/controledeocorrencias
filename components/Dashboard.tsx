@@ -219,9 +219,9 @@ const Dashboard: React.FC<DashboardProps> = ({
             Incidência de Crimes (P3)
             {(totalCvli > 0 || totalMorteIntervencao > 0) && <span className="ml-auto text-[10px] bg-red-600 text-white px-3 py-1 rounded-full font-black">ALERTAS CRÍTICOS</span>}
           </h3>
-          <div className="h-80 w-full relative min-h-[320px]">
+          <div className="h-auto w-full relative min-h-[450px]">
             {pieData.length > 0 ? (
-              <ResponsiveContainer width="99%" height={320}>
+              <ResponsiveContainer width="99%" height={450}>
                 <PieChart>
                   <Pie
                     data={pieData}
@@ -255,13 +255,14 @@ const Dashboard: React.FC<DashboardProps> = ({
                     labelStyle={{ display: 'none' }}
                   />
                   <Legend
-                    layout="vertical"
-                    align="right"
-                    verticalAlign="middle"
+                    layout="horizontal"
+                    align="center"
+                    verticalAlign="bottom"
                     iconType="circle"
+                    wrapperStyle={{ paddingTop: '20px' }}
                     formatter={(value) => (
-                      <span className={`text-[9px] font-black uppercase tracking-tighter ${value === IncidentType.CVLI || value === IncidentType.MORTE_INTERVENCAO ? 'text-red-500' : 'text-slate-400'}`}>
-                        {value.length > 20 ? value.substring(0, 20) + '...' : value}
+                      <span className={`text-[10px] font-black uppercase tracking-tighter ${value === IncidentType.CVLI || value === IncidentType.MORTE_INTERVENCAO || (value as string).includes('HOMICÍDIO') ? 'text-red-500' : 'text-slate-400'}`}>
+                        {value}
                       </span>
                     )}
                   />

@@ -8,7 +8,6 @@ import Header from './components/Header.tsx';
 import Dashboard from './components/Dashboard.tsx';
 import IncidentForm from './components/IncidentForm.tsx';
 import IncidentTable from './components/IncidentTable.tsx';
-import AIAnalysis from './components/AIAnalysis.tsx';
 import IncidentDetail from './components/IncidentDetail.tsx';
 import Reports from './components/Reports.tsx';
 import ConfirmModal from './components/ConfirmModal.tsx';
@@ -540,7 +539,7 @@ const App: React.FC = () => {
           )}
 
 
-          {activeTab === 'analysis' && <AIAnalysis incidents={filteredIncidents} />}
+
           {activeTab === 'reports' && <Reports incidents={filteredIncidents} />}
           {activeTab === 'admin' && userProfile?.is_admin && <AdminPanel />}
           {activeTab === 'new' && (

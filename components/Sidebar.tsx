@@ -20,7 +20,6 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onLogout, is
     { id: 'dashboard', icon: 'fa-chart-line', label: 'Painel Geral' },
     { id: 'list', icon: 'fa-list-check', label: 'Ocorrências' },
     { id: 'reports', icon: 'fa-file-pdf', label: 'Relatórios' },
-    { id: 'analysis', icon: 'fa-brain', label: 'Inteligência IA' },
     { id: 'new', icon: 'fa-plus-circle', label: 'Registrar Nova' },
     ...(isAdmin ? [{ id: 'admin', icon: 'fa-user-shield', label: 'Administração' }] : []),
   ];
@@ -128,8 +127,8 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onLogout, is
             key={item.id}
             onClick={() => setActiveTab(item.id)}
             className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all duration-300 group relative overflow-hidden ${activeTab === item.id
-                ? 'bg-gradient-to-r from-red-700/20 to-red-900/10 text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)]'
-                : 'text-slate-400 hover:bg-white/5 hover:text-white'
+              ? 'bg-gradient-to-r from-red-700/20 to-red-900/10 text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)]'
+              : 'text-slate-400 hover:bg-white/5 hover:text-white'
               }`}
           >
             {activeTab === item.id && (

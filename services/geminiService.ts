@@ -3,7 +3,7 @@ import { Incident } from "../types.ts";
 
 export const analyzeIncidents = async (incidents: Incident[]) => {
   // Always initialize GoogleGenAI inside the function to ensure the latest API key is used
-  const ai = new GoogleGenAI(import.meta.env.VITE_GEMINI_API_KEY || "");
+  const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY || "" });
 
   const prompt = `
     Como um analista sênior de segurança pública, analise a seguinte lista de ocorrências policiais e forneça um relatório estruturado:
@@ -25,12 +25,13 @@ export const analyzeIncidents = async (incidents: Incident[]) => {
   `;
 
   try {
-    const model = ai.getGenerativeModel({ model: "gemini-1.5-flash" });
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
+    const response = await ai.models.generateContent({
+      model: "gemini-1.5-flash",
+      contents: prompt
+    });
 
-    // Access the .text property directly
-    return response.text();
+    // Access the .text getter
+    return response.text || "Sem resposta da IA.";
   } catch (error) {
     console.error("Erro na análise da IA:", error);
     return "Não foi possível realizar a análise no momento. Verifique sua chave de API.";
@@ -39,16 +40,17 @@ export const analyzeIncidents = async (incidents: Incident[]) => {
 
 export const getSmartSummary = async (incident: Incident) => {
   // Always initialize GoogleGenAI inside the function to ensure the latest API key is used
-  const ai = new GoogleGenAI(import.meta.env.VITE_GEMINI_API_KEY || "");
+  const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY || "" });
 
   const prompt = `Resuma de forma técnica e concisa esta ocorrência policial (N° ${incident.incidentNumber}, SIGMA ${incident.sigma}) para um boletim rápido: ${incident.description}`;
 
   try {
-    const model = ai.getGenerativeModel({ model: "gemini-1.5-flash" });
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    // Access the .text property directly
-    return response.text();
+    const response = await ai.models.generateContent({
+      model: "gemini-1.5-flash",
+      contents: prompt
+    });
+    // Access the .text getter
+    return response.text || incident.description;
   } catch (error) {
     return incident.description;
   }
