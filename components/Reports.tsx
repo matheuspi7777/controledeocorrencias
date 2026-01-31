@@ -34,10 +34,7 @@ const Reports: React.FC<ReportsProps> = ({ incidents }) => {
   };
 
   const getCleanDescription = (inc: Incident) => {
-    if (inc.relato_tecnico) return inc.relato_tecnico;
-    const typeLabel = typeof inc.type === 'string' ? inc.type : '';
-    const regex = new RegExp(`^${typeLabel}[:\\s-]*`, 'i');
-    return inc.description.replace(regex, '').trim();
+    return inc.relato_tecnico || '';
   };
 
   const generatePDF = () => {
@@ -207,13 +204,18 @@ const Reports: React.FC<ReportsProps> = ({ incidents }) => {
           });
 
           // Description (Relato Técnico)
-          doc.setFont("helvetica", "normal"); doc.setTextColor(0, 0, 0);
-          const desc = `RELATO: ${getCleanDescription(inc)}`;
-          const splitDesc = doc.splitTextToSize(desc, 170);
+          const cleanDesc = getCleanDescription(inc);
+          if (cleanDesc) {
+            doc.setFont("helvetica", "normal"); doc.setTextColor(0, 0, 0);
+            const desc = `RELATO: ${cleanDesc}`;
+            const splitDesc = doc.splitTextToSize(desc, 170);
 
-          if (currentY + (splitDesc.length * 4) > 275) { doc.addPage(); currentY = 20; }
-          doc.text(splitDesc, 25, currentY);
-          currentY += (splitDesc.length * 4) + 6;
+            if (currentY + (splitDesc.length * 4) > 275) { doc.addPage(); currentY = 20; }
+            doc.text(splitDesc, 25, currentY);
+            currentY += (splitDesc.length * 4) + 6;
+          } else {
+            currentY += 2;
+          }
 
           doc.setDrawColor(230, 230, 230);
           doc.line(25, currentY - 3, 185, currentY - 3);
@@ -327,7 +329,7 @@ const Reports: React.FC<ReportsProps> = ({ incidents }) => {
                             ${inc.cvliType ? `<strong>Detalhe:</strong> ${inc.cvliType}<br/>` : ''}
                             ${inc.drugDetails ? `<strong>Drogas:</strong> ${inc.drugDetails}<br/>` : ''}
                         </div>
-                        <div class="inc-desc"><strong>Relato:</strong> ${getCleanDescription(inc)}</div>
+                        ${getCleanDescription(inc) ? `<div class="inc-desc"><strong>Relato:</strong> ${getCleanDescription(inc)}</div>` : ''}
                     </div>
                 `).join('')}
 

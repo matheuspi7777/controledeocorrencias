@@ -294,7 +294,7 @@ const IncidentDetail: React.FC<IncidentDetailProps> = ({ incident, onClose, onEd
                   <i className="fa-solid fa-align-left text-[#ffd700]"></i> Relato Técnico
                 </h3>
                 <div className="text-slate-300 text-xs sm:text-sm leading-relaxed whitespace-pre-wrap font-medium italic">
-                  {incident.relato_tecnico || incident.description}
+                  {incident.relato_tecnico || <span className="text-slate-500 opacity-50">Nenhum relato técnico informado.</span>}
                 </div>
               </div>
             </div>
