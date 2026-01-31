@@ -287,16 +287,16 @@ const IncidentDetail: React.FC<IncidentDetailProps> = ({ incident, onClose, onEd
                     <p className="text-xs sm:text-sm font-bold text-[#ffd700] uppercase italic">{incident.garrison || 'Não informada'}</p>
                   </div>
                 </div>
-              ) : (
-                <div className="bg-[#1e293b] rounded-2xl p-5 sm:p-6 border border-slate-800 shadow-inner h-full">
-                  <h3 className="text-[10px] sm:text-[11px] font-black text-white uppercase tracking-widest mb-3 flex items-center gap-2">
-                    <i className="fa-solid fa-align-left text-[#ffd700]"></i> Relato Técnico
-                  </h3>
-                  <div className="text-slate-300 text-xs sm:text-sm leading-relaxed whitespace-pre-wrap font-medium italic">
-                    {incident.description}
-                  </div>
+              ) : null}
+
+              <div className="bg-[#1e293b] rounded-2xl p-5 sm:p-6 border border-slate-800 shadow-inner mt-6">
+                <h3 className="text-[10px] sm:text-[11px] font-black text-white uppercase tracking-widest mb-3 flex items-center gap-2">
+                  <i className="fa-solid fa-align-left text-[#ffd700]"></i> Relato Técnico
+                </h3>
+                <div className="text-slate-300 text-xs sm:text-sm leading-relaxed whitespace-pre-wrap font-medium italic">
+                  {incident.relato_tecnico || incident.description}
                 </div>
-              )}
+              </div>
             </div>
           </div>
         </div>

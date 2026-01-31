@@ -34,6 +34,7 @@ const Reports: React.FC<ReportsProps> = ({ incidents }) => {
   };
 
   const getCleanDescription = (inc: Incident) => {
+    if (inc.relato_tecnico) return inc.relato_tecnico;
     const typeLabel = typeof inc.type === 'string' ? inc.type : '';
     const regex = new RegExp(`^${typeLabel}[:\\s-]*`, 'i');
     return inc.description.replace(regex, '').trim();

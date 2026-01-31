@@ -129,7 +129,8 @@ const App: React.FC = () => {
         simulacrumCount: row.simulacrum_count,
         stolenVehicleCount: row.stolen_vehicle_count,
         robbedVehicleCount: row.robbed_vehicle_count,
-        victimCount: row.victim_count
+        victimCount: row.victim_count,
+        relato_tecnico: row.relato_tecnico
       }));
 
       setIncidents(mappedIncidents);
@@ -218,7 +219,8 @@ const App: React.FC = () => {
         simulacrum_count: incidentData.simulacrumCount,
         stolen_vehicle_count: incidentData.stolenVehicleCount,
         robbed_vehicle_count: incidentData.robbedVehicleCount,
-        victim_count: incidentData.victimCount
+        victim_count: incidentData.victimCount,
+        relato_tecnico: incidentData.relato_tecnico
       };
 
       if (!isEditing) {

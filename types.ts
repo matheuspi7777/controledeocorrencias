@@ -91,6 +91,7 @@ export interface Incident {
   stolenVehicleCount?: number;
   robbedVehicleCount?: number;
   victimCount?: number;
+  relato_tecnico?: string;
 }
 
 export interface ReportEntry {

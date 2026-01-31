@@ -50,7 +50,8 @@ const IncidentForm: React.FC<IncidentFormProps> = ({ onSave, onCancel, initialDa
     simulacrumCount: 1,
     stolenVehicleCount: 1,
     robbedVehicleCount: 1,
-    victimCount: 1
+    victimCount: 1,
+    relato_tecnico: ''
   });
 
   const [showDuplicateWarning, setShowDuplicateWarning] = useState(false);
@@ -255,6 +256,7 @@ const IncidentForm: React.FC<IncidentFormProps> = ({ onSave, onCancel, initialDa
       createdAt: isEditing ? initialData?.createdAt : new Date().toISOString(),
       date: formData.date ? new Date(formData.date).toISOString() : new Date().toISOString(),
       description: finalDescription || '',
+      relato_tecnico: formData.relato_tecnico || '',
       sigma: formData.sigma || 'N/A',
       garrison: formData.garrison || '',
       conductedSex: formData.conductedProfiles?.[0] || 'Não Informado' // Legado
@@ -466,10 +468,26 @@ const IncidentForm: React.FC<IncidentFormProps> = ({ onSave, onCancel, initialDa
           </div>
         </div>
 
+        <div className="space-y-6">
+          <div className="flex items-center gap-3">
+            <span className="w-8 h-8 rounded-lg bg-[#ffd700] text-[#002b5c] flex items-center justify-center font-black text-xs">04</span>
+            <h3 className="text-xs font-black text-white uppercase tracking-widest">Relato Técnico</h3>
+          </div>
+          <div className="space-y-1.5">
+            <textarea
+              rows={6}
+              className="w-full px-6 py-3.5 rounded-2xl border-2 border-slate-800 bg-[#1e293b] focus:border-[#ffd700] outline-none transition-all text-sm text-white font-bold placeholder-slate-700"
+              placeholder="Digite aqui o relato técnico da ocorrência..."
+              value={formData.relato_tecnico || ''}
+              onChange={(e) => setFormData({ ...formData, relato_tecnico: e.target.value })}
+            />
+          </div>
+        </div>
+
         {hasSpecificDetails && (
           <div className="space-y-6 bg-slate-800/20 p-4 sm:p-6 rounded-3xl border border-slate-800">
             <h3 className="text-xs font-black text-white uppercase tracking-widest mb-4">
-              04. Detalhes {isCVLIStyle ? `da ${isCVLI ? 'CVLI' : 'Intervenção'}` : (isVeiculoRecuperado || isFurtoVeiculo || isRouboVeiculo) ? 'do Veículo' : 'da Ocorrência'}
+              05. Detalhes {isCVLIStyle ? `da ${isCVLI ? 'CVLI' : 'Intervenção'}` : (isVeiculoRecuperado || isFurtoVeiculo || isRouboVeiculo) ? 'do Veículo' : 'da Ocorrência'}
             </h3>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -672,7 +690,7 @@ const IncidentForm: React.FC<IncidentFormProps> = ({ onSave, onCancel, initialDa
 
         <div className="space-y-6 bg-red-900/5 p-4 sm:p-6 rounded-3xl border border-red-900/20">
           <div className="flex items-center gap-3">
-            <span className="w-8 h-8 rounded-lg bg-red-600 text-white flex items-center justify-center font-black text-xs">05</span>
+            <span className="w-8 h-8 rounded-lg bg-red-600 text-white flex items-center justify-center font-black text-xs">06</span>
             <h3 className="text-xs font-black text-white uppercase tracking-widest">Produtividade P/3</h3>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
