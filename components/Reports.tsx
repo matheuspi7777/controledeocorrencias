@@ -6,17 +6,14 @@ import 'jspdf-autotable';
 import { saveAs } from 'file-saver';
 
 interface ReportsProps {
-  incidents: Incident[];
+  incidents: Incident[]; // This is the filtered list
+  allIncidents: Incident[]; // This is the full list
 }
 
-const Reports: React.FC<ReportsProps> = ({ incidents }) => {
+const Reports: React.FC<ReportsProps> = ({ incidents, allIncidents }) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [selectedIncidentIds, setSelectedIncidentIds] = useState<Set<string>>(new Set());
 
-  // By default, start with no incidents selected
-  useEffect(() => {
-    setSelectedIncidentIds(new Set());
-  }, [incidents]);
 
   const toggleIncidentSelection = (id: string) => {
     const next = new Set(selectedIncidentIds);
@@ -25,7 +22,8 @@ const Reports: React.FC<ReportsProps> = ({ incidents }) => {
   };
 
   const selectAll = () => {
-    const next = new Set(incidents.map(i => i.id));
+    const next = new Set(selectedIncidentIds);
+    incidents.forEach(i => next.add(i.id));
     setSelectedIncidentIds(next);
   };
 
@@ -44,7 +42,7 @@ const Reports: React.FC<ReportsProps> = ({ incidents }) => {
     setTimeout(() => {
       try {
         const doc = new jsPDF();
-        const exportIncidents = incidents.filter(i => selectedIncidentIds.has(i.id));
+        const exportIncidents = allIncidents.filter(i => selectedIncidentIds.has(i.id));
 
         doc.setFontSize(14);
         doc.setTextColor(0, 43, 92);
@@ -237,7 +235,7 @@ const Reports: React.FC<ReportsProps> = ({ incidents }) => {
     setIsGenerating(true);
 
     try {
-      const exportIncidents = incidents.filter(i => selectedIncidentIds.has(i.id));
+      const exportIncidents = allIncidents.filter(i => selectedIncidentIds.has(i.id));
 
       const totalIncidents = exportIncidents.length;
       const totalConduzidos = exportIncidents.reduce((acc, curr) => acc + (curr.conductedCount || 0), 0);

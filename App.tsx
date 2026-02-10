@@ -542,7 +542,7 @@ const App: React.FC = () => {
 
 
 
-          {activeTab === 'reports' && <Reports incidents={filteredIncidents} />}
+          {activeTab === 'reports' && <Reports incidents={filteredIncidents} allIncidents={incidents} />}
           {activeTab === 'admin' && userProfile?.is_admin && <AdminPanel />}
           {activeTab === 'new' && (
             <div className="max-w-4xl mx-auto">
